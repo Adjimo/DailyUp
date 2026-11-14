@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>DailyUp</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json?v=8" />
+  <meta name="theme-color" content="#121212" />
+  <script>
+    // Thème appliqué avant l'affichage (recopié depuis les préférences) : pas de flash.
+    try { if (localStorage.getItem('dailyup-theme') === 'light') { document.documentElement.dataset.theme = 'light'; document.querySelector('meta[name="theme-color"]').setAttribute('content', '#F4EFE7'); } } catch (e) {}
+  </script>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" href="icons/orion-favicon.png?v=8" type="image/png" />
+  <link rel="apple-touch-icon" href="icons/orion-192.png?v=8" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- MapLibre GL (carte vectorielle stylée Orion) -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <script defer src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+  <!-- Chart.js (graphiques) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== SPLASH SCREEN ===== -->
+  <div id="splash" class="splash">
+    <div class="splash-content">
+      <img class="splash-logo" src="icons/logo.png?v=8" alt="" width="132" height="132" />
+      <div class="splash-title">DailyUp</div>
+    </div>
+  </div>
+
+  <!-- ===== APP SHELL ===== -->
+  <div id="app" class="app hidden">
+    <main id="view"></main>
+
+    <!-- Toast -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Overlay PR -->
+    <div id="pr-overlay" class="pr-overlay hidden">
+      <div class="pr-card">
+        <div class="pr-rays"></div>
+        <div class="pr-trophy" data-ico="trophy"></div>
+        <div class="pr-title">NEW PR</div>
+        <div class="pr-subtitle">Record personnel battu</div>
+        <div id="pr-list" class="pr-list"></div>
+        <div class="dim text-xs mt-3">Tape pour fermer</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TABBAR ===== -->
+  <nav class="tabbar hidden" id="tabbar">
+    <div class="tabbar-inner">
+      <button class="tab" data-route="home" data-icon="tab-accueil">
+        <img class="tab-icon" src="icons/ui/tab-accueil-mono.png?v=8" alt="">
+        <span>Accueil</span>
+      </button>
+      <button class="tab" data-route="planning" data-icon="tab-planning">
+        <img class="tab-icon" src="icons/ui/tab-planning-mono.png?v=8" alt="">
+        <span>Planning</span>
+      </button>
+      <button class="tab" data-route="today" data-icon="tab-objectif">
+        <img class="tab-icon" src="icons/ui/tab-objectif-mono.png?v=8" alt="">
+        <span>Aujourd'hui</span>
+      </button>
+      <button class="tab" data-route="todo" data-icon="tab-todo">
+        <img class="tab-icon" src="icons/ui/tab-todo-mono.png?v=8" alt="">
+        <span>To-do</span>
+      </button>
+      <button class="tab" data-route="sport" data-icon="tab-sport">
+        <img class="tab-icon" src="icons/ui/tab-sport-mono.png?v=8" alt="">
+        <span>Sport</span>
+      </button>
+      <button class="tab" data-route="stats" data-icon="tab-stats">
+        <img class="tab-icon" src="icons/ui/tab-stats-mono.png?v=8" alt="">
+        <span>Stats</span>
+      </button>
+    </div>
+  </nav>
+
+  <script type="module" src="js/main.js"></script>
+  <script>
+    // ── Service worker : enregistrement + mise à jour automatique.
+    // Quand le SW signale qu'une nouvelle version est active (postMessage 'SW_ACTIVATED'),
+    // on recharge la page UNE SEULE FOIS pour basculer sur la nouvelle version.
+    // On expose aussi window.OrionSW pour la section "À propos" du Profil.
+    if ('serviceWorker' in navigator) {
+      let reloadGuard = false;
+
+      navigator.serviceWorker.addEventListener('message', (e) => {
+        if (e.data?.type === 'SW_ACTIVATED' && !reloadGuard) {
+          reloadGuard = true;
+          // Petit délai pour laisser l'app actuelle finir une éventuelle écriture.
+          setTimeout(() => location.reload(), 600);
+        }
+      });
+
+      // Si le contrôleur change pendant la session, on recharge aussi
+      // (cas où skipWaiting prend la main sur un autre onglet).
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloadGuard) return;
+        reloadGuard = true;
+        setTimeout(() => location.reload(), 600);
+      });
+
+      window.addEventListener('load', async () => {
+        try {
+          const reg = await navigator.serviceWorker.register('sw.js');
+          // Force un check de mise à jour à chaque chargement de la page.
+          reg.update().catch(() => {});
+
+          // Si un SW attend déjà (ancien tick a installé une nouvelle version
+          // mais l'ancien SW est encore aux commandes), force le passage.
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+          // Idem pour toute future installation : dès qu'un SW finit son install,
+          // on lui dit d'activer immédiatement.
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (!newWorker) return;
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+              }
+            });
+          });
+
+          // API utilitaire pour la vue Profil.
+          window.OrionSW = {
+            registration: reg,
+            // Récupère la version du SW. Plusieurs sources possibles, on retourne
+            // la première qui répond. Strucutre : { version, source, state }.
+            async getInfo() {
+              const info = {
+                version: null,
+                source: null,
+                state: 'inconnu',
+                hasRegistration: !!reg,
+                hasController: !!navigator.serviceWorker.controller
+              };
+
+              // 1. Tenter la communication directe avec le SW actif via postMessage.
+              const askWorker = (worker) => new Promise((resolve) => {
+                if (!worker) return resolve(null);
+                try {
+                  const channel = new MessageChannel();
+                  let done = false;
+                  const timer = setTimeout(() => { if (!done) { done = true; resolve(null); } }, 1500);
+                  channel.port1.onmessage = (e) => {
+                    if (done) return;
+                    done = true; clearTimeout(timer);
+                    resolve(e.data?.version || null);
+                  };
+                  worker.postMessage({ type: 'GET_VERSION' }, [channel.port2]);
+                } catch {
+                  resolve(null);
+                }
+              });
+
+              const candidates = [
+                ['controller', navigator.serviceWorker.controller],
+                ['active', reg?.active],
+                ['waiting', reg?.waiting],
+                ['installing', reg?.installing]
+              ];
+              for (const [src, worker] of candidates) {
+                const v = await askWorker(worker);
+                if (v) {
+                  info.version = v;
+                  info.source = src;
+                  info.state = worker.state;
+                  return info;
+                }
+              }
+
+              // 2. Fallback robuste : on lit directement le fichier sw.js sur
+              // le serveur et on en extrait la constante VERSION par regex.
+              // Cela fonctionne même si le SW est muet, en attente, ou bugué.
+              try {
+                const resp = await fetch('sw.js?_=' + Date.now(), { cache: 'no-store' });
+                if (resp.ok) {
+                  const text = await resp.text();
+                  const m = text.match(/VERSION\s*=\s*['"]([^'"]+)['"]/);
+                  if (m) {
+                    info.version = m[1];
+                    info.source = 'fetched';
+                    if (reg) {
+                      const w = reg.active || reg.waiting || reg.installing;
+                      info.state = w?.state || 'inconnu';
+                    }
+                    return info;
+                  }
+                }
+              } catch {}
+
+              // 3. Dernier recours : on a une registration mais aucune source
+              // exploitable.
+              if (reg) {
+                const w = reg.active || reg.waiting || reg.installing;
+                if (w) {
+                  info.state = w.state;
+                  info.source = reg.active ? 'active' : (reg.waiting ? 'waiting' : 'installing');
+                  info.version = '(installé · version inconnue)';
+                  return info;
+                }
+              }
+
+              return info;
+            },
+            // Compat ancienne API (renvoie juste la string).
+            async getVersion() {
+              return (await this.getInfo()).version;
+            },
+            async clearCacheAndReload() {
+              try {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(regs.map(r => r.unregister()));
+                if ('caches' in window) {
+                  const keys = await caches.keys();
+                  await Promise.all(keys.map(k => caches.delete(k)));
+                }
+              } catch {}
+              location.reload();
+            },
+            async forceCheckUpdate() {
+              try { await reg.update(); } catch {}
+            }
+          };
+        } catch {}
+      });
+    } else {
+      window.OrionSW = null;
+    }
+  </script>
+</body>
+</html>
