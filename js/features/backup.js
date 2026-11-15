@@ -14,7 +14,9 @@ import { recomputeAllRecords, recomputeAllXp } from '../pages/sport.js';
 import { el, escapeHtml, showToast } from '../ui/helpers.js';
 import { iconHtml } from '../ui/icons.js';
 import { markExport } from './storage.js';
-import { bedLabelFor, bedMinFor } from './prefs.js';
+import { bedLabelFor, bedMinFor, prefsNow } from './prefs.js';
+import { DAY_LABELS, workEndMinFor } from './planning.js';
+import { isRestDay } from '../core/calendar.js';
 
 // Construit le snapshot complet de l'app (utilisé par export et backup auto).
 // `backups` lui-même est volontairement EXCLU pour éviter la récursion.
@@ -327,24 +329,53 @@ export async function showWeekReportIfDue() {
 }
 
 // RAPPELS (notifications locales)
-// meta `reminders` : { work: {on, time}, sleep: {on, time}, lastFired: { work: 'YYYY-MM-DD', sleep: ... } }
+// meta `reminders` : { mode: 'auto'|'manual', work: {on, time}, sleep: {on, time}, lastFired: { work: 'YYYY-MM-DD', sleep: ... } }
+// mode 'auto' : travail = heure de fin de travail du jour ; sommeil = 15 min avant l'heure de coucher du jour.
+// mode 'manual' : une heure fixe, la même chaque jour (initialisée d'après le lundi après l'inscription).
 // Sans serveur push, l'app ne peut notifier QUE lorsqu'elle est ouverte (ou en arrière-plan récent).
-// Notifications personnalisées (meta `customReminders`) : [{ id, label, time, daily, date, lastFired }].
+// Notifications personnalisées (meta `customReminders`) : [{ id, label, time, days: [0..6, lundi = 0], repeat, on, pending: ['YYYY-MM-DD'], lastFired }].
+// repeat = true : chaque semaine, les jours choisis. repeat = false : une seule fois par jour choisi (prochaine occurrence, `pending`), puis la notification disparaît.
+// L'ancien format { daily, date } est converti à la lecture (`normCustom`).
 export const REMINDER_DEFS = {
-  work:  { icon: 'books', label: 'Saisir le travail du jour', title: 'DailyUp · Travail', body: "N'oublie pas de saisir ton travail d'aujourd'hui.", def: '21:30' },
-  sleep: { icon: 'moon', label: 'Se coucher à l’heure', title: 'DailyUp · Sommeil', body: 'Il est temps de se préparer : couché avant 23h30.', def: '22:45' },
+  work:  { icon: 'books', label: 'Fin de travail', title: 'DailyUp · Travail', body: "N'oublie pas de saisir ton travail d'aujourd'hui.", def: '21:30' },
+  sleep: { icon: 'moon', label: 'Coucher − 15 min', title: 'DailyUp · Sommeil', body: 'Il est temps de se préparer : couché avant 23h30.', def: '23:15' },
 };
 
 export const REMINDER_WINDOW_MIN = 90;   // rattrapage : on déclenche jusqu'à 90 min après l'heure prévue
 
 export async function getReminders() {
   const v = (await dbGet('meta', 'reminders'))?.value || {};
-  const out = { lastFired: v.lastFired || {} };
+  const out = { mode: v.mode === 'auto' ? 'auto' : 'manual', lastFired: v.lastFired || {} };
   for (const k of Object.keys(REMINDER_DEFS)) out[k] = { on: !!v[k]?.on, time: v[k]?.time || REMINDER_DEFS[k].def };
   return out;
 }
 
 export async function saveReminders(r) { await dbPut('meta', { key: 'reminders', value: r }); }
+
+export const SLEEP_LEAD_MIN = 15;
+const hm = (m) => { const x = ((Math.round(m) % 1440) + 1440) % 1440; return `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
+
+// Heure (minutes depuis minuit) d'un rappel pour le jour `dateKey`.
+export function reminderMinFor(kind, r, dateKey) {
+  if (r.mode === 'auto') {
+    if (kind === 'work') return Math.min(1439, workEndMinFor(dateKey));
+    return Math.min(1420, bedMinFor(dateKey) - SLEEP_LEAD_MIN);   // coucher après minuit : on prévient en fin de soirée
+  }
+  const c = r[kind];
+  // Sommeil à l'heure par défaut (jamais réglée) : 15 min avant le coucher choisi pour CE soir.
+  if (kind === 'sleep' && c.time === REMINDER_DEFS.sleep.def) return Math.min(1420, bedMinFor(dateKey) - SLEEP_LEAD_MIN);
+  return timeToMin(c.time);
+}
+
+// Après l'inscription : heures fixes déduites du lundi (fin de travail ; coucher − 15 min). N'active rien.
+export async function seedReminderTimesFromMonday() {
+  const h = prefsNow().hours?.[0];
+  if (!h) return;
+  const r = await getReminders();
+  r.work.time = hm(h.end);
+  r.sleep.time = hm(Math.min(1420, h.bed - SLEEP_LEAD_MIN));
+  await saveReminders(r);
+}
 
 export function timeToMin(t) { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); }
 
@@ -366,9 +397,50 @@ export async function showReminderNotification(kind) {
   await notify({ icon: d.icon, title: d.title, body, tag: 'orion-' + kind });
 }
 
+const WD = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const wdIdx = (d) => (d.getDay() + 6) % 7;            // lundi = 0
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const dateOf = (k) => new Date(k + 'T00:00:00');
+const sameDays = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+
+// Prochaine date (YYYY-MM-DD) de chaque jour choisi ; aujourd'hui seulement si l'heure n'est pas encore passée.
+export function nextDatesFor(days, time, now = new Date()) {
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const t = timeToMin(time);
+  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return days.map(d => {
+    let off = (d - wdIdx(base) + 7) % 7;
+    if (off === 0 && nowMin >= t) off = 7;
+    return todayKey(new Date(base.getFullYear(), base.getMonth(), base.getDate() + off));
+  }).sort();
+}
+
+function normCustom(c) {
+  const base = { id: c.id, label: c.label, time: c.time || '09:00', lastFired: c.lastFired || '' };
+  if (Array.isArray(c.days)) {
+    const days = [...new Set(c.days.filter(n => Number.isInteger(n) && n >= 0 && n < 7))].sort((x, y) => x - y);
+    return { ...base, days, repeat: !!c.repeat, on: c.on !== false, pending: Array.isArray(c.pending) ? c.pending : [] };
+  }
+  if (c.daily) return { ...base, days: ALL_DAYS, repeat: true, on: true, pending: [] };   // ancien format
+  const d = c.date ? dateOf(c.date) : new Date();
+  return { ...base, days: [wdIdx(d)], repeat: false, on: true, pending: c.date ? [c.date] : [] };
+}
+
+// Résumé lisible des jours (« Tous les jours », « Lun–Ven », « Lun · Mer · chaque semaine », « Lun 16/11 »…).
+export function daysText(c) {
+  const list = c.days.map(i => WD[i]).join(' · ');
+  if (c.repeat) {
+    if (c.days.length === 7) return 'Tous les jours';
+    const s = sameDays(c.days, [0, 1, 2, 3, 4]) ? 'Lun–Ven' : sameDays(c.days, [5, 6]) ? 'Week-end' : list;
+    return s + ' · chaque semaine';
+  }
+  if (c.on && c.pending.length) return c.pending.map(k => { const d = dateOf(k); return `${WD[wdIdx(d)]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`; }).join(' · ');
+  return list + ' · une fois';
+}
+
 export async function getCustomReminders() {
   const v = (await dbGet('meta', 'customReminders'))?.value;
-  return Array.isArray(v) ? v : [];
+  return Array.isArray(v) ? v.map(normCustom) : [];
 }
 export async function saveCustomReminders(list) { await dbPut('meta', { key: 'customReminders', value: list }); }
 
@@ -382,8 +454,8 @@ export async function checkReminders() {
   for (const kind of Object.keys(REMINDER_DEFS)) {
     const c = r[kind];
     if (!c.on || r.lastFired[kind] === today) continue;
-    // Sommeil à l'heure par défaut : 45 min avant le coucher choisi pour CE soir (tutoriel) ; une heure personnalisée garde la priorité.
-    const t = kind === 'sleep' && c.time === REMINDER_DEFS.sleep.def ? Math.min(1439 - REMINDER_WINDOW_MIN, bedMinFor(today) - 45) : timeToMin(c.time);
+    if (kind === 'work' && isRestDay(today)) continue;          // concours : pas de saisie de travail attendue
+    const t = reminderMinFor(kind, r, today);
     if (nowMin < t || nowMin > t + REMINDER_WINDOW_MIN) continue;
     r.lastFired[kind] = today; changed = true;
     if (kind === 'work') {
@@ -394,20 +466,30 @@ export async function checkReminders() {
   }
   if (changed) await saveReminders(r);
 
-  // Notifications personnalisées : une seule fois (à la date prévue) ou tous les jours.
+  // Notifications personnalisées : chaque semaine (jours choisis) ou une seule fois par jour choisi.
   const list = await getCustomReminders();
   const keep = []; let listChanged = false;
+  const todayIdx = wdIdx(now);
+  const fire = (c) => notify({ icon: 'bell', title: 'DailyUp · ' + c.label, body: c.label, tag: 'orion-c-' + c.id });
   for (const c of list) {
+    if (!c.on) { keep.push(c); continue; }
     const t = timeToMin(c.time);
     const inWindow = nowMin >= t && nowMin <= t + REMINDER_WINDOW_MIN;
-    if (c.daily) {
-      if (c.lastFired !== today && inWindow) { c.lastFired = today; listChanged = true; await notify({ icon: 'bell', title: 'DailyUp · ' + c.label, body: c.label, tag: 'orion-c-' + c.id }); }
+    if (c.repeat) {
+      if (c.days.includes(todayIdx) && c.lastFired !== today && inWindow) { c.lastFired = today; listChanged = true; await fire(c); }
       keep.push(c);
-    } else if (c.date === today && inWindow) {
-      listChanged = true; await notify({ icon: 'bell', title: 'DailyUp · ' + c.label, body: c.label, tag: 'orion-c-' + c.id });
-    } else if (c.date < today || (c.date === today && nowMin > t + REMINDER_WINDOW_MIN)) {
-      listChanged = true;   // date passée : on la retire sans notifier
-    } else keep.push(c);
+      continue;
+    }
+    const before = c.pending.length;
+    const rest = [];
+    for (const k of c.pending) {
+      if (k === today && inWindow) { await fire(c); continue; }                 // part maintenant
+      if (k < today || (k === today && nowMin > t + REMINDER_WINDOW_MIN)) continue;   // passée : retirée sans notifier
+      rest.push(k);
+    }
+    c.pending = rest;
+    if (rest.length !== before) listChanged = true;
+    if (rest.length) keep.push(c);   // plus aucune date à venir : la notification disparaît
   }
   if (listChanged) await saveCustomReminders(keep);
 }
@@ -421,55 +503,96 @@ export function startReminderLoop() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkReminders().catch(() => {}); });
 }
 
-// Fenêtre « Ajouter une notification » : motif + heure (+ répétition quotidienne).
+// Fenêtre « Ajouter / Modifier une notification » : motif, heure, jours de la semaine, répétition.
 const NOTIF_MOTIFS = ['Saisir mon travail', 'Se coucher', 'Sortie running', 'Réviser', 'Préparer une colle', 'Rendre un devoir'];
+const DAY_PRESETS = [['Tous les jours', ALL_DAYS], ['Semaine', [0, 1, 2, 3, 4]], ['Week-end', [5, 6]]];
+const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
-function openNotificationModal(onAdded) {
+function openNotificationModal(existing, onDone) {
   const overlay = el('div', { class: 'gpx-preview-overlay' });
   const modal = el('div', { class: 'gpx-preview-modal' });
   const nextHour = new Date(Date.now() + 3600e3);
-  const defTime = `${String(nextHour.getHours()).padStart(2, '0')}:00`;
+  const defTime = existing?.time || `${String(nextHour.getHours()).padStart(2, '0')}:00`;
+  let days = existing ? [...existing.days] : [wdIdx(nextHour)];
   modal.innerHTML = `
     <div class="gpx-preview-head">
-      <div class="gpx-preview-title"><span class="gpx-preview-icon">${iconHtml('bell')}</span><span>Nouvelle notification</span></div>
+      <div class="gpx-preview-title"><span class="gpx-preview-icon">${iconHtml('bell')}</span><span>${existing ? 'Modifier la notification' : 'Nouvelle notification'}</span></div>
       <button class="gpx-preview-close" aria-label="Fermer">${iconHtml('close')}</button>
     </div>
     <div style="padding: 16px 18px; overflow-y: auto;">
       <div class="dim text-xs mb-1">Motif</div>
       <input class="input nt-label" type="text" maxlength="60" placeholder="Ex. : Réviser les séries" style="width:100%;" />
-      <div class="nt-chips mt-2">${NOTIF_MOTIFS.map(m => `<button type="button" class="nt-chip">${m}</button>`).join('')}</div>
+      <div class="nt-chips mt-2">${NOTIF_MOTIFS.map(m => `<button type="button" class="nt-chip nt-motif">${m}</button>`).join('')}</div>
       <div class="dim text-xs mb-1 mt-3">Heure</div>
-      <input class="input nt-time" type="time" value="${defTime}" style="color-scheme: dark;" />
-      <label class="nt-daily mt-3"><input class="nt-daily-on" type="checkbox" /> Répéter tous les jours</label>
+      <input class="input nt-time" type="time" value="${defTime}" />
+      <div class="dim text-xs mb-1 mt-3">Jours</div>
+      <div class="ob-days nt-days"></div>
+      <div class="nt-chips">${DAY_PRESETS.map(([l], i) => `<button type="button" class="nt-chip nt-preset" data-i="${i}">${l}</button>`).join('')}</div>
+      <label class="nt-daily mt-3"><input class="nt-repeat" type="checkbox" ${existing ? (existing.repeat ? 'checked' : '') : 'checked'} /> Répéter chaque semaine</label>
+      <div class="dim text-xs mt-1 nt-sum"></div>
       <div class="dim text-xs mt-2 nt-err" style="color:#c4584a;"></div>
+      ${existing ? `<button type="button" class="btn ghost sm nt-del mt-2">${iconHtml('close')} Supprimer cette notification</button>` : ''}
       <div class="cs-actions">
         <button class="btn ghost nt-cancel">Annuler</button>
-        <button class="btn primary nt-ok">Ajouter</button>
+        <button class="btn primary nt-ok">${existing ? 'Enregistrer' : 'Ajouter'}</button>
       </div>
     </div>`;
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
   const close = () => overlay.remove();
   const input = modal.querySelector('.nt-label');
-  modal.querySelectorAll('.nt-chip').forEach(b => b.addEventListener('click', () => { input.value = b.textContent; input.focus(); }));
+  const timeIn = modal.querySelector('.nt-time');
+  const repeatIn = modal.querySelector('.nt-repeat');
+  const pills = modal.querySelector('.nt-days');
+  const sum = modal.querySelector('.nt-sum');
+  input.value = existing?.label || '';
+  const preview = () => {
+    if (!days.length) { sum.textContent = ''; return; }
+    const repeat = repeatIn.checked;
+    const draft = { days, repeat, on: true, pending: repeat ? [] : nextDatesFor(days, timeIn.value || defTime) };
+    sum.textContent = daysText(draft);
+  };
+  const drawDays = () => {
+    pills.replaceChildren(...DAY_LETTERS.map((l, k) => el('button', {
+      type: 'button', class: 'ob-pill' + (days.includes(k) ? ' on' : ''), 'aria-label': DAY_LABELS[k], 'aria-pressed': String(days.includes(k)),
+      onclick: () => { days = days.includes(k) ? days.filter(x => x !== k) : [...days, k].sort((a, b) => a - b); drawDays(); },
+    }, l)));
+    modal.querySelectorAll('.nt-preset').forEach(b => b.classList.toggle('on', sameDays(days, DAY_PRESETS[+b.dataset.i][1])));
+    preview();
+  };
+  drawDays();
+  modal.querySelectorAll('.nt-motif').forEach(b => b.addEventListener('click', () => { input.value = b.textContent; input.focus(); }));
+  modal.querySelectorAll('.nt-preset').forEach(b => b.addEventListener('click', () => { days = [...DAY_PRESETS[+b.dataset.i][1]]; drawDays(); }));
+  repeatIn.addEventListener('change', preview);
+  timeIn.addEventListener('input', preview);
   modal.querySelector('.gpx-preview-close').addEventListener('click', close);
   modal.querySelector('.nt-cancel').addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  modal.querySelector('.nt-del')?.addEventListener('click', async () => {
+    await saveCustomReminders((await getCustomReminders()).filter(c => c.id !== existing.id));
+    close(); onDone?.();
+  });
   modal.querySelector('.nt-ok').addEventListener('click', async () => {
+    const err = modal.querySelector('.nt-err');
     const label = input.value.trim();
-    const time = modal.querySelector('.nt-time').value;
-    if (!label) { modal.querySelector('.nt-err').textContent = 'Choisis ou écris un motif.'; return; }
-    if (!time) { modal.querySelector('.nt-err').textContent = 'Choisis une heure.'; return; }
-    const daily = modal.querySelector('.nt-daily-on').checked;
-    const now = new Date();
-    const when = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (now.getHours() * 60 + now.getMinutes() < timeToMin(time) ? 0 : 1));
+    const time = timeIn.value;
+    if (!label) { err.textContent = 'Choisis ou écris un motif.'; return; }
+    if (!time) { err.textContent = 'Choisis une heure.'; return; }
+    if (!days.length) { err.textContent = 'Choisis au moins un jour.'; return; }
+    const repeat = repeatIn.checked;
+    const pending = repeat ? [] : nextDatesFor(days, time);
     const list = await getCustomReminders();
-    list.push({ id: Date.now().toString(36), label, time, daily, date: todayKey(when) });
+    let item;
+    if (existing) {
+      item = list.find(c => c.id === existing.id);
+      if (item) Object.assign(item, { label, time, days, repeat, on: true, pending, lastFired: '' });
+    }
+    if (!item) { item = { id: Date.now().toString(36), label, time, days, repeat, on: true, pending, lastFired: '' }; list.push(item); }
     await saveCustomReminders(list);
     if ('Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (e) {} }
     close();
-    showToast({ type: 'xp', icon: 'bell', title: 'Notification ajoutée', text: `${label} · ${time}${daily ? ' · tous les jours' : ''}` }, 3000);
-    onAdded?.();
+    showToast({ type: 'xp', icon: 'bell', title: existing ? 'Notification modifiée' : 'Notification ajoutée', text: `${label} · ${time} · ${daysText(item)}` }, 3500);
+    onDone?.();
     checkReminders().catch(() => {});
   });
 }
@@ -478,52 +601,108 @@ export async function renderRemindersCard(card) {
   const r = await getReminders();
   const custom = await getCustomReminders();
   const perm = ('Notification' in window) ? Notification.permission : 'unsupported';
-  const permTxt = perm === 'granted' ? 'Notifications autorisées' : perm === 'denied' ? 'Notifications bloquées : autorise-les pour ce site dans les réglages du téléphone ou du navigateur' : perm === 'unsupported' ? 'Notifications non disponibles ici' : 'Notifications non autorisées';
+  const permTxt = perm === 'granted' ? 'Notifications autorisées' : perm === 'denied' ? 'Notifications bloquées sur cet appareil' : perm === 'unsupported' ? 'Notifications non disponibles ici' : 'Notifications non autorisées';
+  const auto = r.mode === 'auto';
+  const today = todayKey();
+  const timeFor = (k) => hm(auto ? reminderMinFor(k, r, today) : timeToMin(r[k].time) );
+  const allAuto = auto && r.work.on && r.sleep.on;
   card.innerHTML = `
+    <div class="pl-scope rem-mode" role="group" aria-label="Mode des rappels">
+      <button type="button" class="pl-seg ${auto ? 'active' : ''}" data-mode="auto">Automatique</button>
+      <button type="button" class="pl-seg ${auto ? '' : 'active'}" data-mode="manual">Heure fixe</button>
+    </div>
+    <div class="mt-2"></div>
     <div class="rem-list">
       ${Object.keys(REMINDER_DEFS).map(k => `
         <div class="rg-row rem-row" data-kind="${k}">
           <span class="rg-reason">${iconHtml(REMINDER_DEFS[k].icon)} ${REMINDER_DEFS[k].label}</span>
-          <input class="input rem-time" type="time" value="${r[k].time}" />
+          <input class="input rem-time" type="time" value="${timeFor(k)}" ${auto ? 'disabled' : ''} />
           <input class="rem-on" type="checkbox" ${r[k].on ? 'checked' : ''} aria-label="Activer" />
         </div>`).join('')}
       ${custom.map(c => `
         <div class="rg-row rem-row" data-cid="${c.id}">
-          <span class="rg-reason">${iconHtml('bell')} ${escapeHtml(c.label)}</span>
-          <span class="mono text-xs dim">${c.time}${c.daily ? ' · chaque jour' : ''}</span>
-          <button class="btn ghost sm rem-del" aria-label="Supprimer">${iconHtml('close')}</button>
+          <span class="rg-reason rem-edit" role="button" tabindex="0" aria-label="Modifier ${escapeHtml(c.label)}">${iconHtml('bell')} ${escapeHtml(c.label)}<span class="rem-sub">${escapeHtml(daysText(c))}</span></span>
+          <input class="input rem-time" type="time" value="${c.time}" />
+          <input class="rem-on" type="checkbox" ${c.on ? 'checked' : ''} aria-label="Activer" />
         </div>`).join('')}
     </div>
-    <div class="dim text-xs mt-2">${permTxt}.</div>
+    <div class="rem-note mt-2">${permTxt}</div>
+    <div class="rem-help dim text-xs mt-1" id="rem-help" hidden></div>
     <div class="save-actions mt-2">
-      ${perm === 'default' ? '<button class="btn ghost sm" id="rem-perm">Autoriser les notifications</button>' : ''}
+      ${perm !== 'granted' ? '<button class="btn sm" id="rem-perm">Activer les notifications</button>' : ''}
+      ${allAuto ? '' : '<button class="btn sm" id="rem-auto">Activer les notifications automatiques</button>'}
       <button class="add-btn" id="rem-add"><span class="add-plus">+</span> Ajouter une notification</button>
     </div>
   `;
+  const askPermission = async () => {
+    if (!('Notification' in window)) return 'unsupported';
+    try { await Notification.requestPermission(); } catch (e) { /* silencieux */ }
+    return Notification.permission;
+  };
+  const showHelp = (state) => {
+    const h = card.querySelector('#rem-help');
+    h.hidden = false;
+    h.innerHTML = state === 'unsupported'
+      ? 'Ce navigateur ne propose pas les notifications. Sur iPhone, ajoute d\u2019abord DailyUp à l\u2019écran d\u2019accueil, puis rouvre l\u2019app depuis son icône.'
+      : 'Le téléphone bloque les notifications pour cette app. Pour les réactiver : <b>iPhone</b> : Réglages → Notifications → DailyUp. <b>Android / Chrome</b> : touche le cadenas (ou ⋮) à côté de l\u2019adresse → Autorisations → Notifications → Autoriser. Puis reviens ici.';
+  };
+  card.querySelectorAll('.rem-mode [data-mode]').forEach(b => b.addEventListener('click', async () => {
+    const cur = await getReminders(); cur.mode = b.dataset.mode; cur.lastFired = {}; await saveReminders(cur);
+    renderRemindersCard(card); checkReminders().catch(() => {});
+  }));
+  card.querySelector('#rem-perm')?.addEventListener('click', async () => {
+    const st = await askPermission();
+    await renderRemindersCard(card);
+    if (st === 'denied' || st === 'unsupported') showHelp(st);
+  });
+  card.querySelector('#rem-auto')?.addEventListener('click', async () => {
+    const cur = await getReminders();
+    cur.mode = 'auto'; cur.work.on = true; cur.sleep.on = true; cur.lastFired = {};
+    await saveReminders(cur);
+    const st = ('Notification' in window && Notification.permission === 'default') ? await askPermission() : (('Notification' in window) ? Notification.permission : 'unsupported');
+    await renderRemindersCard(card);
+    if (st === 'denied' || st === 'unsupported') showHelp(st);
+    checkReminders().catch(() => {});
+  });
   card.querySelectorAll('.rem-row[data-kind]').forEach(row => {
     const k = row.dataset.kind;
     const save = async () => {
       const cur = await getReminders();
       cur[k].on = row.querySelector('.rem-on').checked;
-      cur[k].time = row.querySelector('.rem-time').value || REMINDER_DEFS[k].def;
+      if (cur.mode !== 'auto') cur[k].time = row.querySelector('.rem-time').value || REMINDER_DEFS[k].def;
       delete cur.lastFired[k];
       await saveReminders(cur);
       if (cur[k].on && 'Notification' in window && Notification.permission === 'default') {
-        try { await Notification.requestPermission(); } catch (e) {}
+        await askPermission();
         renderRemindersCard(card);
       }
       checkReminders().catch(() => {});
     };
     row.querySelectorAll('input').forEach(i => i.addEventListener('change', save));
   });
-  card.querySelector('#rem-perm')?.addEventListener('click', async () => {
-    try { await Notification.requestPermission(); } catch (e) {}
-    renderRemindersCard(card);
+  card.querySelector('#rem-add').addEventListener('click', () => openNotificationModal(null, () => renderRemindersCard(card)));
+  card.querySelectorAll('.rem-row[data-cid]').forEach(row => {
+    const id = row.dataset.cid;
+    const edit = async () => {
+      const c = (await getCustomReminders()).find(x => x.id === id);
+      if (c) openNotificationModal(c, () => renderRemindersCard(card));
+    };
+    const label = row.querySelector('.rem-edit');
+    label.addEventListener('click', edit);
+    label.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); edit(); } });
+    const save = async () => {
+      const list = await getCustomReminders();
+      const c = list.find(x => x.id === id);
+      if (!c) return;
+      c.on = row.querySelector('.rem-on').checked;
+      c.time = row.querySelector('.rem-time').value || c.time;
+      c.lastFired = '';
+      if (!c.repeat) c.pending = c.on ? nextDatesFor(c.days, c.time) : [];
+      await saveCustomReminders(list);
+      if (c.on && 'Notification' in window && Notification.permission === 'default') await askPermission();
+      await renderRemindersCard(card);
+      checkReminders().catch(() => {});
+    };
+    row.querySelectorAll('input').forEach(i => i.addEventListener('change', save));
   });
-  card.querySelector('#rem-add').addEventListener('click', () => openNotificationModal(() => renderRemindersCard(card)));
-  card.querySelectorAll('.rem-del').forEach(btn => btn.addEventListener('click', async () => {
-    const id = btn.closest('.rem-row').dataset.cid;
-    await saveCustomReminders((await getCustomReminders()).filter(c => c.id !== id));
-    renderRemindersCard(card);
-  }));
 }

@@ -1,7 +1,7 @@
 // Moteur du planning : assemble cours, colles, DS, périodes et modifications d'une semaine.
 import { dbAll, dbDelete, dbPut } from '../core/db.js';
-import { EDT_END, SCHOOL_START, addDays, dayInfo, diffDays, mondayOf, parseKey, weekMode } from '../core/calendar.js';
-import { colleProgramNow, prefsNow } from './prefs.js';
+import { EDT_END, SCHOOL_START, addDays, dayInfo, diffDays, mondayOf, parseKey, periodOf, weekMode } from '../core/calendar.js';
+import { colleProgramNow, endMinFor, periodBlocksFor, prefsNow } from './prefs.js';
 import { BASE_COURSES, COLLE_SLOTS, DS_BY_INDEX, DS_DAY, DS_START, ITC_COURS_END, ITC_TP_LAST_INDEX, TDSI_ANCHOR, weekIndexOf } from './planning-data.js';
 
 export const DAY_LABELS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -109,8 +109,8 @@ export const DAY_RULES = [
   { work: [R('08:00', '12:00'), R('13:00', '18:30'), R('19:30', '22:00')], pauses: [R('12:00', '13:00'), EVENING] },   // mercredi (DS l'après-midi)
   { work: [R('08:00', '12:00'), R('14:00', '18:30'), R('19:30', '22:00')], pauses: [R('13:00', '14:00'), EVENING] },   // jeudi (pause repas 13h-14h)
   { work: [R('08:00', '12:00'), R('12:30', '18:30'), R('19:30', '22:00')], pauses: [R('12:00', '12:30'), EVENING] },   // vendredi
-  { work: [R('11:00', '12:00'), R('13:30', '17:30')], pauses: [R('12:00', '13:30')] },                                 // samedi (11h-12h si pas de TD de SI)
-  { work: [R('08:00', '12:00'), R('13:30', '18:00')], pauses: [R('12:00', '13:30')] }                                  // dimanche
+  { work: [R('11:00', '12:00'), R('13:30', '17:30')], pauses: [R('12:00', '13:30'), R('19:30', '21:30')] },                // samedi (11h-12h si pas de TD de SI) + pause repas du soir
+  { work: [R('08:00', '12:00'), R('13:30', '18:00')], pauses: [R('12:00', '13:30'), R('19:00', '20:00')] }                 // dimanche + pause repas du soir
 ];
 
 function subtractBusy(windows, busy, minLen) {
@@ -127,26 +127,77 @@ function subtractBusy(windows, busy, minLen) {
   return out;
 }
 
-function freeBlocks(events, dayIndex) {
-  const busy = events.filter(e => e.start && e.end).map(e => [toMin(e.start), toMin(e.end)]).sort((x, y) => x[0] - y[0]);
-  const rules = DAY_RULES[dayIndex];
-  const end = prefsNow().hours?.[dayIndex]?.end;   // fin de travail choisie (tutoriel) : remplace l'heure d'origine
-  let work = rules.work;
-  if (end) { work = work.filter(w => w[0] < end).map(w => [w[0], Math.min(w[1], end)]); const last = work[work.length - 1]; if (last && last[1] < end && rules.work.at(-1)[1] < end) last[1] = end; }
-  return { free: subtractBusy(work, busy, 30), pauses: subtractBusy(rules.pauses, busy, 15) };
+const mergeRanges = (rs) => {
+  const out = [];
+  for (const r of [...rs].sort((x, y) => x[0] - y[0])) {
+    const last = out[out.length - 1];
+    if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]); else out.push([r[0], r[1]]);
+  }
+  return out;
+};
+
+// Pauses repas de base : de vrais créneaux (type « pause »), donc modifiables / supprimables comme les cours.
+// Jour de concours (repos) : aucune pause automatique. Vacances / révisions : pauses du planning simplifié.
+function basePauses(monday) {
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    const date = addDays(monday, i), per = periodOf(date);
+    if (per?.kind === 'rest') continue;
+    if (per?.kind === 'simple') {
+      periodBlocksFor(date).filter(b => b.kind === 'pause').forEach((b, n) => out.push({ id: `pt:${n}:${date}`, recurKey: `pt:${n}`, type: 'pause', date, start: b.start, end: b.end, title: 'Pause repas', teacher: null, room: null }));
+      continue;
+    }
+    DAY_RULES[i].pauses.forEach(([a, b], n) => out.push({ id: `p:${i}:${n}:${date}`, recurKey: `p:${i}:${n}`, type: 'pause', date, start: fromMin(a), end: fromMin(b), title: 'Pause repas', teacher: null, room: null }));
+  }
+  return out;
+}
+
+// Fin de travail du jour (minutes) : fin du dernier bloc de travail du planning simplifié, sinon réglage habituel.
+export function workEndMinFor(dateKey) {
+  const per = periodOf(dateKey);
+  if (per?.kind === 'simple') { const w = periodBlocksFor(dateKey).filter(b => b.kind === 'work'); return w.length ? toMin(w[w.length - 1].end) : 0; }
+  return endMinFor(dateKey);
+}
+
+// Temps libre d'un jour : plages de travail (pauses d'origine incluses quand elles sont dans la journée de travail)
+// moins les événements ET les pauses (qui peuvent donc être déplacées). Un créneau « Temps libre » ajouté s'ajoute aux plages.
+function freeBlocks(events, pauses, libres, dayIndex, custom) {
+  const busy = [...events, ...pauses].filter(e => e.start && e.end).map(e => [toMin(e.start), toMin(e.end)]).sort((x, y) => x[0] - y[0]);
+  const rules = custom || DAY_RULES[dayIndex];
+  const end = custom ? null : prefsNow().hours?.[dayIndex]?.end;   // fin de travail choisie (tutoriel) : remplace l'heure d'origine
+  const first = rules.work[0]?.[0] ?? 0, lastEnd = rules.work.at(-1)?.[1] ?? 0;
+  let work = mergeRanges([...rules.work, ...rules.pauses.filter(p => p[0] >= first && p[1] <= lastEnd)]);
+  if (end) { work = work.filter(w => w[0] < end).map(w => [w[0], Math.min(w[1], end)]); const last = work[work.length - 1]; if (last && last[1] < end && lastEnd < end) last[1] = end; }
+  work = mergeRanges([...work, ...libres.filter(l => l.start && l.end).map(l => [toMin(l.start), toMin(l.end)])]);
+  const free = subtractBusy(work, busy, 30);
+  for (const f of free) {
+    const mid = (toMin(f.start) + toMin(f.end)) / 2;
+    const l = libres.find(x => x.start && x.end && toMin(x.start) <= mid && mid < toMin(x.end));
+    if (l) { f.title = l.title; f.ev = l; }
+  }
+  return free;
 }
 
 // Semaine complète : 7 jours, événements triés, temps libre (« travail personnel »).
 export async function buildWeek(monday, overrides) {
   const ovs = overrides || await loadOverrides();
   const mode = weekMode(monday);
-  const all = applyOverrides(baseEvents(monday, mode), monday, ovs);
+  const all = applyOverrides([...baseEvents(monday, mode), ...basePauses(monday)], monday, ovs);
   const days = [];
   for (let i = 0; i < 7; i++) {
     const date = addDays(monday, i);
-    const events = all.filter(e => e.date === date && e.start).sort((a, b) => a.start.localeCompare(b.start));
-    const { free, pauses } = freeBlocks(events, i);
-    days.push({ date, index: i, label: DAY_LABELS[i], info: dayInfo(date), events, free, pauses, freeMinutes: free.reduce((s, b) => s + toMin(b.end) - toMin(b.start), 0) });
+    const dayAll = all.filter(e => e.date === date && e.start).sort((a, b) => a.start.localeCompare(b.start));
+    const events = dayAll.filter(e => e.type !== 'pause' && e.type !== 'libre');
+    const pauses = dayAll.filter(e => e.type === 'pause');
+    const libres = dayAll.filter(e => e.type === 'libre');
+    const period = periodOf(date);
+    let free;
+    if (period?.kind === 'rest') free = [];                                  // concours : aucun temps de travail attendu
+    else if (period?.kind === 'simple') {
+      const bl = periodBlocksFor(date), mm = (b) => [toMin(b.start), toMin(b.end)];
+      free = freeBlocks(events, pauses, libres, i, { work: bl.filter(b => b.kind === 'work').map(mm), pauses: bl.filter(b => b.kind === 'pause').map(mm) });
+    } else free = freeBlocks(events, pauses, libres, i);
+    days.push({ date, index: i, label: DAY_LABELS[i], info: dayInfo(date), period, events, free, pauses, freeMinutes: free.reduce((s, b) => s + toMin(b.end) - toMin(b.start), 0) });
   }
   return {
     monday, mode, index: weekIndexOf(monday), days,
