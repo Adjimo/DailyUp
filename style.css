@@ -1991,3 +1991,57 @@ input[type="checkbox"]:checked { background-color: var(--accent); border-color: 
 
 /* ── v5 · Splash de la version administrateur ── */
 .splash-admin { margin-top: 6px; font-weight: 600; font-size: 1.05rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); }
+
+/* ── v5 · Planning : cartes proportionnelles à la durée (hauteur compressée), pauses sans boîte ── */
+.pl-list { gap: 8px; }
+.pl-card { align-items: stretch; position: relative; }
+.pl-time { justify-content: space-between; }
+.pl-body { display: flex; flex-direction: column; justify-content: flex-start; }
+.pl-dur { margin-top: auto; align-self: flex-end; padding-top: 4px; font-family: var(--font-mono); font-size: .72rem; color: color-mix(in srgb, var(--ev, var(--text-mute)) 55%, var(--text-mute)); }
+.pl-card.pl-now { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent); }
+.pl-chip-live { color: var(--on-accent); background: var(--accent); border-color: var(--accent); font-weight: 600; }
+.pl-card.pl-pause { --ev: var(--ev-pause); border: none; border-radius: var(--r-sm); background: color-mix(in srgb, var(--ev-pause) 12%, transparent); opacity: 1; padding: 4px 14px; align-items: center; }
+.pl-card.pl-pause .pl-time { flex-direction: row; gap: 6px; min-width: 0; font-size: .7rem; color: color-mix(in srgb, var(--ev-pause) 60%, var(--text-mute)); justify-content: flex-start; align-items: center; width: 92px; flex: none; }
+.pl-card.pl-pause .pl-time-end::before { content: '– '; }
+.pl-card.pl-pause .pl-body { justify-content: center; }
+.pl-pause .pl-title { font-weight: 500; font-size: .82rem; color: color-mix(in srgb, var(--ev-pause) 55%, var(--text-mute)); }
+.pl-card.pl-free .pl-time { flex-direction: column; }
+
+/* ── v5 · Éditeur de créneau : catégories avec pastille de couleur ── */
+.pl-field[hidden] { display: none; }
+.pl-cats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pl-cat { display: flex; align-items: center; gap: 8px; padding: 9px 10px; background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: var(--r-sm); color: var(--text-dim); font-size: .88rem; text-align: left; }
+.pl-cat.on { border-color: var(--accent); color: var(--text); background: color-mix(in srgb, var(--accent) 12%, var(--bg-2)); box-shadow: 0 0 0 1px var(--accent); }
+.pl-cat-dot { width: 12px; height: 12px; border-radius: 4px; flex: none; border: 1px solid color-mix(in srgb, var(--text) 25%, transparent); }
+
+/* ── v5 · Tutoriel : icône centrée (le conteneur .ico faisait 1,1em et l'icône débordait vers la droite) ── */
+.ob-ico { display: flex; justify-content: center; }
+.ob-ico .ico { width: 44px; height: 44px; display: inline-flex; }
+.ob-ico svg { width: 44px; height: 44px; }
+.pl-card.pl-pause .pl-time { width: auto; min-width: 118px; white-space: nowrap; }
+.pl-card.pl-pause .pl-time span { white-space: nowrap; }
+
+/* ── v5 · Périodes (vacances, révisions, concours) ── */
+.pl-banner { margin: 0 0 12px; padding: 10px 12px; background: color-mix(in srgb, var(--accent) 10%, var(--bg-2)); border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: var(--r-md); }
+.pl-banner-t { font-weight: 600; font-size: .92rem; }
+.pl-banner-s { font-size: .78rem; color: var(--text-dim); margin-top: 2px; }
+.pl-banner-a { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.pl-block-row { display: grid; grid-template-columns: 14px 1fr 1fr 1fr auto; gap: 6px; align-items: center; }
+.pl-block-row select, .pl-block-row input { min-width: 0; }
+.pl-blocks-msg { margin: 2px 0; }
+.pl-blocks-msg.pl-bad-t { color: var(--danger); }
+.pl-block-row { grid-template-columns: 12px 84px 1fr 1fr 36px; }
+.pl-block-row input[type=time], .pl-block-row select { padding: 7px 4px; font-size: .84rem; }
+.pl-block-row .btn.sm { padding: 6px; width: 36px; }
+
+/* Notifications personnalisées : même rangée que les rappels classiques + choix des jours */
+.rem-edit { cursor: pointer; }
+.rem-sub { display: block; margin-top: 2px; font-size: 0.72rem; color: var(--text-mute); }
+.nt-time { color-scheme: dark; }
+:root[data-theme="light"] .nt-time { color-scheme: light; }
+.nt-days { margin: 4px 0 10px; gap: 5px; justify-content: space-between; }
+.nt-days .ob-pill { flex: 1; width: auto; height: auto; max-width: 44px; aspect-ratio: 1; padding: 0; }
+.nt-chip.on { border-color: var(--accent); color: var(--gold); }
+.nt-del { color: var(--danger); display: inline-flex; align-items: center; gap: 6px; }
+.nt-del .ico { width: 14px; height: 14px; }
+.rem-note { font-size: 0.72rem; color: var(--text-mute); }

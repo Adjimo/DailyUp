@@ -59,6 +59,21 @@ Les données vivent uniquement dans le navigateur. Profil → Sauvegarde → Exp
 
 ## v5.0 (suite)
 
+- **Périodes spéciales** (`periodOf`, `isRestDay`, `REST_FROM`, `PERIOD_FROM` dans `core/calendar.js`) :
+  - **Vacances et révisions** (à partir du 16/11/2026) : planning simplifié, même modèle pour toutes ces périodes : 8 h–12 h travail, 12 h–13 h 30 pause repas, 13 h 30–19 h travail, 19 h–20 h 30 pause repas, puis soirée libre (non affichée, non comptée). Le temps libre, donc les objectifs, suivent ce modèle (9 h 30 de travail possible par jour). Réglable dans Planning : bandeau « Horaires de la période » (modèle commun, `prefs.periodTemplate`) et « Modifier ce jour » (`prefs.periodDays[date]`), blocs travail / pause modifiables, ajout / suppression, rétablir. Les horaires habituels des Options ne changent pas ; la fin de travail du dernier bloc sert aux rappels automatiques (`workEndMinFor`).
+  - **Concours** (veille du 1er écrit 11/04/2027 → dimanche 09/05 inclus ; reprise le lundi 10/05) : repos. Objectifs de travail à 0 (jour, semaine, matières) ; aucune quête de travail ratée (malus ignorés quand l'objectif est nul) ; pas de rappel « Saisir le travail » ; caractéristiques inchangées sans travail ; le travail saisi donne un **bonus** (temps ÷ objectif habituel de la matière × pente du dépassement × (1 − alpha), dans `scoreWeek` / `replay` de `features/caracs.js`). La page Aujourd'hui garde la saisie par matière (« Travail · repos »). Priorité aux concours sur les vacances de Printemps. Sommeil, sorties et to-do inchangés.
+
+- **Notifications** : le bouton « Activer les notifications » reste affiché tant que la permission n'est pas accordée (même après un refus). Si le téléphone bloque, un encart explique où les réactiver (iPhone / Android), car un navigateur ne peut pas lever lui-même un blocage.
+- **Rappels automatiques** (`reminders.mode = 'auto'`) : « Saisir le travail » part à l'heure de fin de travail du jour ; « Se coucher » part 15 min avant l'heure de coucher du jour (`reminderMinFor`, `SLEEP_LEAD_MIN` dans `features/backup.js`). Bouton « Activer les notifications automatiques » (active les deux + demande la permission).
+- **Rappels à heure fixe** (`mode = 'manual'`) : même heure tous les jours ; après l'inscription elle est déduite du lundi (`seedReminderTimesFromMonday`) : lundi fin 20 h / coucher 21 h 30 → 20 h 00 et 21 h 15. L'heure de sommeil par défaut passe aussi à « coucher − 15 min ». `endMinFor()` ajouté dans `features/prefs.js`.
+
+- **Planning, cartes proportionnelles** : la hauteur de chaque créneau suit sa durée, avec plancher et plafond (journée lisible) ; heure de début en haut et de fin en bas, durée en bas à droite, repère « en cours » sur le créneau du moment.
+- **Pauses repas modifiables** : ce sont maintenant de vrais créneaux (type `pause`, `basePauses()` dans `features/planning.js`) : on les déplace / supprime / rétablit (cette semaine ou toutes les semaines). Elles restent sans boîte, en bande de fond, couleur réglable. Le calcul du temps libre est inchangé par défaut (vérifié sur les 44 semaines) ; déplacer une pause met à jour le temps libre.
+- **Nouvelles pauses** : samedi 19 h 30 – 21 h 30 et dimanche 19 h – 20 h (`DAY_RULES`).
+- **Éditeur de créneau** : toutes les catégories du planning (cours, colle, DS, pause repas, temps libre, autre) avec leur pastille de couleur à gauche ; Professeur + Salle pour cours et colle, Salle seule pour DS, rien pour les autres. Un créneau « Temps libre » ajouté s'ajoute au temps libre.
+- **Tutoriel** : icônes centrées (le conteneur `.ico` était trop étroit).
+- **Version admin** : nom `DailyUp Administrateur` dans `manifest.json` (`name`) et le titre de `index.html` (à appliquer à la main sur le build admin).
+
 - **Version admin** : l'écran de lancement affiche « DailyUp » puis « ADMINISTRATEUR » dessous, et le titre de l'onglet devient « DailyUp Administrateur » (`showSplash` dans `main.js`, selon `IS_ADMIN`). La version utilisateur est inchangée.
 
 - **Tutoriel** : nouvelle 1re page « Comment t'appelles-tu ? » (pseudo, enregistré dans le profil et affiché sur l'accueil) ; correction du « null » affiché en bas de la 1re page (`replaceChildren` recevait `null`).
@@ -379,3 +394,11 @@ Les données vivent uniquement dans le navigateur. Profil → Sauvegarde → Exp
 ### v4.62
 - **Aujourd'hui** : la grille des matières de la case Travail occupe toute la largeur de la case (marges gauche et droite égales) ; la dernière matière seule sur sa ligne garde une demi-largeur, à gauche (v4.63).
 - SW `orion-v134`, `APP_VERSION` 4.63.
+
+### v5.0 — Notifications personnalisées (jours au choix)
+- **Même affichage que les rappels classiques** : chaque notification ajoutée est une rangée identique (icône cloche, motif, heure modifiable au même format, case à cocher pour l'activer / la couper). Sous le motif, une ligne résume les jours (« Tous les jours », « Week-end · chaque semaine », « Mer 18/11 · Lun 23/11 »). Toucher le motif rouvre la fenêtre en mode **Modifier** (avec « Supprimer »).
+- **Fenêtre Ajouter / Modifier** (`openNotificationModal` dans `features/backup.js`) : motif (+ raccourcis), heure, **pastilles L M M J V S D** (un ou plusieurs jours), raccourcis « Tous les jours / Semaine / Week-end », case « Répéter chaque semaine » et résumé en direct.
+- **Modèle** (meta `customReminders`) : `{ id, label, time, days: [0..6, lundi = 0], repeat, on, pending, lastFired }`. `repeat = true` : part chaque semaine les jours choisis. `repeat = false` : part une seule fois à la prochaine occurrence de chaque jour choisi (`pending`, calculé par `nextDatesFor`), puis la notification disparaît. Les anciennes notifications `{ daily, date }` sont converties à la lecture (`normCustom`), y compris depuis une sauvegarde importée.
+- Toujours sans serveur push : elles partent quand l'app est ouverte ou récemment en arrière-plan (rattrapage de 90 min).
+- `APP_VERSION` 5.0 et SW `dailyup-v5-0` inchangés (versions utilisateur et admin nommées 5.0).
+- **Rappels allégés** : plus de phrases explicatives (modes Automatique et Heure fixe) ; deux rangées « Fin de travail » et « Coucher − 15 min », notes en petit (`.rem-note`).
