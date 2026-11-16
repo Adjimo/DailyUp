@@ -11,7 +11,11 @@ import { setSubjectMinutes } from './work.js';
 
 // Date à partir de laquelle bonus et malus s'activent.
 // Premier lundi de septembre 2026.
-export const PENALTIES_START = '2026-09-07';
+export let PENALTIES_START = '2026-09-07';
+// Version utilisateur : les malus démarrent le jour d'arrivée (jamais avant la rentrée).
+export function setPenaltiesStart(joinDate) {
+  PENALTIES_START = joinDate && joinDate > '2026-09-07' ? joinDate : '2026-09-07';
+}
 
 export function arePenaltiesActive(refDate = new Date()) {
   const start = new Date(PENALTIES_START + 'T00:00:00');
