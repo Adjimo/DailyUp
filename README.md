@@ -402,3 +402,7 @@ Les données vivent uniquement dans le navigateur. Profil → Sauvegarde → Exp
 - Toujours sans serveur push : elles partent quand l'app est ouverte ou récemment en arrière-plan (rattrapage de 90 min).
 - `APP_VERSION` 5.0 et SW `dailyup-v5-0` inchangés (versions utilisateur et admin nommées 5.0).
 - **Rappels allégés** : plus de phrases explicatives (modes Automatique et Heure fixe) ; deux rangées « Fin de travail » et « Coucher − 15 min », notes en petit (`.rem-note`).
+
+### v5.0 — Sortie sans GPX, calculs depuis la date d'arrivée
+- **Sortie manuelle** (onglet Sport, bouton « + Sortie », aussi dans l'état vide) : date, distance, durée (h / min), catégorie, D+ facultatif ; aperçu « allure · XP ». Même chaîne que le GPX (`commitActivity` dans `pages/sport.js` : XP, records, quêtes, caractéristiques, semaines passées recalculées). Activité stockée avec `manual: true`, `points: []` ; pas de carte pour ces sorties ; modifiable et supprimable comme les autres.
+- **Date d'arrivée** (`core/join.js`, meta `joinDate`, utilisateur ET admin) : lue avant `initSeed`. Installation déjà existante (meta `initialized`) : `2026-09-01`, comme avant ; nouvelle installation : jour de la première ouverture. Elle fixe le point de départ des **caractéristiques** (`getCaracSettings().start` = max(1er sept., arrivée), semaine d'arrivée proratisée, premier calcul le lundi suivant, valeur de départ 10 au lieu de 4 partout) et des **malus** (`setPenaltiesStart`, `PENALTIES_START` est une liaison modifiable). La to-do démarre déjà le jour d'arrivée (`todoState.startDate`).

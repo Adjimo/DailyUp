@@ -22,6 +22,7 @@ const ASSETS = [
   './js/core/calendar.js',
   './js/core/dates.js',
   './js/core/db.js',
+  './js/core/join.js',
   './js/core/state.js',
   './js/core/xp.js',
   './js/features/backup.js',
