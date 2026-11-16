@@ -30,6 +30,7 @@ const ASSETS = [
   './js/features/work-goals.js',
   './js/features/exams.js',
   './js/features/gpx.js',
+  './js/features/joker.js',
   './js/features/penalties.js',
   './js/features/planning-data.js',
   './js/features/planning.js',
