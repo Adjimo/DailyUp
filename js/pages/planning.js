@@ -44,7 +44,7 @@ function eventCard(ev, onTap, day) {
   return el('div', { class: `pl-card pl-${ev.type} pl-tap${isLive ? ' pl-now' : ''}`, style: `min-height:${hCard(min)}px`, onclick: () => onTap(ev) }, [
     timeCol(ev.start, ev.end),
     el('div', { class: 'pl-body' }, [
-      el('div', { class: 'pl-title' }, [ev.title, dur ? el('span', { class: 'pl-chip' }, dur) : null, ev.modified ? el('span', { class: 'pl-chip' }, 'modifié') : null, isLive ? el('span', { class: 'pl-chip pl-chip-live' }, 'en cours') : null]),
+      el('div', { class: 'pl-title' }, [ev.title, dur ? el('span', { class: 'pl-chip' }, dur) : null, isLive ? el('span', { class: 'pl-chip pl-chip-live' }, 'en cours') : null]),
       meta ? el('div', { class: 'pl-meta' }, meta) : null,
       min >= 75 ? el('div', { class: 'pl-dur' }, formatDuration(min)) : null
     ])
@@ -63,9 +63,10 @@ function freeCard(b, onTap, day) {
 // Pause : pas de boîte, une simple bande en fond (modifiable au toucher comme les autres créneaux).
 function pauseCard(p, onTap) {
   const min = spanMin(p.start, p.end);
-  return el('div', { class: 'pl-card pl-pause pl-tap', style: `min-height:${hPause(min)}px`, onclick: () => onTap(p) }, [
+  const tint = p.type === 'trajet' ? ';--ev-pause:var(--ev-trajet)' : '';   // même bande que la pause repas, couleur de la catégorie
+  return el('div', { class: 'pl-card pl-pause pl-tap', style: `min-height:${hPause(min)}px${tint}`, onclick: () => onTap(p) }, [
     timeCol(p.start, p.end),
-    el('div', { class: 'pl-body' }, [el('div', { class: 'pl-title' }, [p.title || 'Pause repas', p.modified ? el('span', { class: 'pl-chip' }, 'modifié') : null])])
+    el('div', { class: 'pl-body' }, [el('div', { class: 'pl-title' }, p.title || 'Pause repas')])
   ]);
 }
 
@@ -231,8 +232,9 @@ function openEditor(ev, week, rerender) {
     const prev = curCat; curCat = k;
     catBox.querySelectorAll('.pl-cat').forEach(b => { const on = b.dataset.k === k; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
     fTeacher.hidden = !showsTeacher(); fRoom.hidden = !showsRoom();
-    if (k === 'pause' && !inTitle.value.trim()) inTitle.value = 'Pause repas';
-    else if (prev === 'pause' && inTitle.value.trim() === 'Pause repas' && k !== 'pause') inTitle.value = '';
+    const DEF = { pause: 'Pause repas', trajet: 'Retour à la maison' };   // intitulé proposé pour ces catégories
+    if (DEF[k] && (!inTitle.value.trim() || inTitle.value.trim() === DEF[prev])) inTitle.value = DEF[k];
+    else if (!DEF[k] && DEF[prev] && inTitle.value.trim() === DEF[prev]) inTitle.value = '';
   }
   const recurring = isNew || !!ev.recurKey;
   let scope = 'week';
