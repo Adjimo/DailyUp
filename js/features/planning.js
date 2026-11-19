@@ -45,7 +45,7 @@ function baseEvents(monday, mode) {
   const idx = weekIndexOf(monday);
   if (mode === 'normal' && idx !== null) {
     if (prefsNow().colles !== false) for (const code of colleProgramNow().rotation[idx] || []) {
-      const s = COLLE_SLOTS[code];
+      const s = { ...COLLE_SLOTS[code], ...(colleProgramNow().slots?.[code] || {}) };   // plage d'oral blanc propre à l'élève (rang dans le trio)
       const date = s.day ? addDays(monday, s.day - 1) : null;
       events.push({
         id: `k:${monday}:${code}`, type: 'colle', subj: s.subject, code, date,

@@ -27,7 +27,7 @@ const clean = (v) => ({ ...DEFAULTS, ...(v || {}), v: 1, sport: v?.sport !== fal
 export async function loadPrefs() { if (!cache) cache = clean((await dbGet('meta', KEY))?.value); return cache; }
 export const prefsNow = () => cache || (cache = clean(null));
 export const sportOn = () => prefsNow().sport;
-// Programme de colles choisi (Thomas = groupe 8, Daphné = groupe 11).
+// Programme de colles choisi (Thomas = groupe 8, Daphné = groupe 11, Valentin = groupe 10).
 export const colleProgramNow = () => COLLE_PROGRAMS[prefsNow().who] || COLLE_PROGRAMS.thomas;
 export const gamifyOn = () => prefsNow().gamify;
 
