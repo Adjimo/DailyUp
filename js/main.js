@@ -17,6 +17,7 @@ import { hydrateStaticIcons } from './ui/icons.js';
 import { initSwipeNav, navigate } from './ui/router.js';
 import { IS_ADMIN } from './core/state.js';
 import { initJoinDate } from './core/join.js';
+import { showWhatsNewIfDue } from './pages/whatsnew.js';
 
 export function showSplash() {
   const splash = document.getElementById('splash');
@@ -101,7 +102,11 @@ export async function init() {
     if (r) showToast({ type: 'xp', title: r.title, text: r.text }, 6000);
   }, 7000);
   startReminderLoop();
-  setTimeout(() => showWeekReportIfDue().catch(() => {}), 1200);
+  // Nouveautés d'abord (une seule fois par version), puis le bilan hebdomadaire s'il est dû.
+  setTimeout(async () => {
+    await showWhatsNewIfDue().catch(() => {});
+    await showWeekReportIfDue().catch(() => {});
+  }, 1200);
 
   // Si des malus/bonus viennent d'être appliqués, le signaler.
   if (tick?.applied?.length) {
