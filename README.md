@@ -59,6 +59,10 @@ Les données vivent uniquement dans le navigateur. Profil → Sauvegarde → Exp
 
 ## v5.0 (suite)
 
+- **Accueil** : barre « Travail de la semaine » au-dessus des compétences (heures saisies / objectif de la semaine, même style que les autres cartes ; en semaine de concours : « Repos », heures en bonus). `renderWeekWork` dans `pages/home.js`.
+- **To-do, cycle** : le poids (budget) de la semaine n'est plus jamais dépassé, reports compris : un chapitre qui ne rentre plus attend la semaine suivante (le curseur ne bouge pas) ; seul un chapitre plus lourd que le budget passe seul (ex. EM8 = 12 pts). Avant, la boucle ajoutait un chapitre tant que le total était sous le budget, donc finissait au-dessus (12, 13, 15 pts pour un budget de 10). Les semaines déjà générées ne sont pas modifiées. (`generate` dans `features/todo.js`)
+- **Planning** : « Travail personnel » devient « Temps libre » et occupe toutes les plages libres des horaires de la journée : samedi, début de journée à 8 h (plus de trou 10 h – 11 h les semaines sans TD de SI) ; jeudi, plage jusqu'à 13 h (pause repas à 13 h) ; durée minimale d'une plage libre ramenée de 30 à 15 min. Le temps libre (donc les objectifs) augmente d'une heure les samedis sans TD de SI. L'option « Temps libre » n'est plus proposée à l'ajout d'un créneau (sa couleur reste réglable).
+
 - **Valentin** (Jehan, groupe 10, 2e de son trio) ajouté au choix de l'emploi du temps du tutoriel : rotation `COLLES_G10` (vérifiée contre `planning_2026-2027_5.pdf`), TP ITC en semaines paires, oraux blancs à la 2e plage (M0 mardi 7h20, M1 samedi 7h20) via `slots` dans `COLLE_PROGRAMS` (`planning-data.js`), appliqués dans `baseEvents` (`planning.js`).
 
 - **Périodes spéciales** (`periodOf`, `isRestDay`, `REST_FROM`, `PERIOD_FROM` dans `core/calendar.js`) :
@@ -85,6 +89,13 @@ Les données vivent uniquement dans le navigateur. Profil → Sauvegarde → Exp
 - **Onglet Sport** : la carte « Sorties de la semaine » reprend le format des blocs d'« Aujourd'hui » (icône, titre, sous-titre, compteur − / + plus petit à droite, sans le mot « Objectif »).
 
 - **Carte du Sport en mode clair** : la carte suit le thème : `buildMapStyle()` et `mapPalette()` dans `pages/sport.js` (palettes sombre et claire, tracé foncé en clair), contrôles, attribution et marqueurs adaptés dans `style.css`. La palette est lue à la création de la carte.
+
+## v5.1 — Page « Nouveautés »
+
+- **Page « Nouveautés »** (`pages/whatsnew.js`) : fenêtre courte (1 ligne par nouveauté) affichée **une seule fois** au premier lancement après une mise à jour, avant le bilan hebdomadaire. Meta `lastSeenVersion` ; nouvelle installation (tutoriel pas encore fait) : version mémorisée sans rien afficher ; pas d'affichage si `RELEASE_NOTES.version` ≠ `APP_VERSION`.
+- **À chaque mise à jour** : changer `APP_VERSION` (`core/state.js`), `VERSION` (`sw.js`) et réécrire `RELEASE_NOTES` dans `pages/whatsnew.js`.
+- **Contenu des nouveautés v5.1** : barre « Travail de la semaine » (Accueil) ; Planning : « Travail personnel » devient « Temps libre » et occupe toutes les plages disponibles ; To-do : les cycles ne dépassent plus le poids autorisé par semaine.
+- SW `dailyup-v5-1`, `APP_VERSION` 5.1 (utilisateur et admin).
 
 ## v5.0 — Version 5
 

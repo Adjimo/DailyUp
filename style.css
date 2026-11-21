@@ -2053,3 +2053,14 @@ input[type="checkbox"]:checked { background-color: var(--accent); border-color: 
 .pl-joker-note { display: flex; align-items: center; gap: 8px; width: 100%; margin: 0 0 10px; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--border)); border-radius: var(--r-sm); background: color-mix(in srgb, var(--gold) 10%, transparent); color: var(--text); font: inherit; font-size: 0.8rem; text-align: left; cursor: pointer; }
 .pl-joker-note .ico { width: 16px; height: 16px; }
 .pl-joker-btn .ico { width: 16px; height: 16px; }
+
+/* ── v5 · Accueil : barre du travail de la semaine, au-dessus des compétences ── */
+.hm-card.hm-week { margin-top: 16px; gap: 8px; }
+
+.hm-card.hm-week { margin-bottom: 8px; }
+
+/* ── v5.1 · Page « Nouveautés » ── */
+.wn-row { align-items: flex-start; }
+.wn-ico { width: 20px; flex: none; display: grid; place-items: center; padding-top: 1px; }
+.wn-ico .ico { width: 16px; height: 16px; }
+.wn-row b { font-weight: 600; color: var(--gold); }
