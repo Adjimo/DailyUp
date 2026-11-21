@@ -1,7 +1,7 @@
 // État global de l'application
 
 // Version sémantique app affichée dans le profil. Incrémente à chaque release.
-export const APP_VERSION = '5.0';
+export const APP_VERSION = '5.1';
 
 // Version admin (true) : « Relancer le tutoriel » dans Options. Version utilisateur : false.
 export const IS_ADMIN = false;
