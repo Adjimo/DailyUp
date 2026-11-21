@@ -87,7 +87,7 @@ export function renderHome(root) {
   else { fit.classList.add('no-gam'); top.firstChild?.classList.add('full'); }
 
   // Travail de la semaine : heures saisies / objectif de la semaine (au-dessus des compétences)
-  const weekCard = el('div', { class: 'card hm-card hm-week' });
+  const weekCard = el('div', { class: 'hn-card hm-week' });
   page.appendChild(weekCard);
   renderWeekWork(weekCard).catch(err => console.error('Week bar failed', err));
 
@@ -109,17 +109,25 @@ async function renderWeekWork(card) {
   const worked = logs.reduce((t, l) => t + (l.totalMinutes || 0), 0);
   const goal = Math.round(goals.total || 0);
   const rest = Array.from({ length: 7 }, (_, i) => addDays(monday, i)).every(isRestDay);
+  // Même présentation qu'une boîte de compétence (en-tête + une barre), avec l'icône chronomètre.
+  const head = (note) => `
+    <div class="hn-head">
+      <span class="hn-ico">${iconHtml('stopwatch')}</span>
+      <div class="hn-title"><div class="t1"><b>Travail de la semaine</b></div></div>
+      <span class="hn-note"><span class="hn-to">${note}</span></span>
+    </div>`;
+  const part = (ratio, val, side, off) => `
+    <div class="hn-body"><div class="hn-part${off ? ' off' : ''}${ratio >= 100 ? ' full' : ''}">
+      <div class="hn-line"><span class="hn-pico">${iconHtml('target')}</span><span class="hn-name">${off ? 'Pas d’objectif' : 'Objectif de la semaine'}</span></div>
+      <div class="hn-bar"><div class="hn-fill" style="width:${Math.max(0, Math.min(100, ratio))}%"></div></div>
+      <div class="hn-info"><span class="hn-val">${val}</span><span class="hn-sub">${side}</span></div>
+    </div></div>`;
   if (rest || goal <= 0) {
-    card.innerHTML = `
-      <div class="hm-label hm-label-row"><span>Travail de la semaine</span><span>Repos</span></div>
-      <div class="hm-meter">${progressBar(0, 8)}</div>
-      <div class="hm-subs"><div class="hm-sub">Pas d’objectif</div><div class="hm-sub mute">${worked ? `${formatDuration(worked)} en bonus` : '&nbsp;'}</div></div>`;
+    card.innerHTML = head('Repos') + part(0, worked ? formatDuration(worked) : '', worked ? 'en bonus' : '', true);
     return;
   }
   const pct = Math.round(worked / goal * 100);
   const left = Math.max(0, goal - worked);
-  card.innerHTML = `
-    <div class="hm-label hm-label-row"><span>Travail de la semaine</span><span>${formatDuration(worked)} / ${formatDuration(goal)}</span></div>
-    <div class="hm-meter">${progressBar(worked / goal, 8)}</div>
-    <div class="hm-subs"><div class="hm-sub"><span style="color:var(--accent);font-weight:700">${pct} %</span> de l’objectif</div><div class="hm-sub mute">${left ? `Encore ${formatDuration(left)}` : 'Objectif atteint'}</div></div>`;
+  card.classList.toggle('done', left === 0);
+  card.innerHTML = head(`${pct}%`) + part(pct, `${formatDuration(worked)} / ${formatDuration(goal)}`, left ? `Encore ${formatDuration(left)}` : 'Objectif atteint', false);
 }
