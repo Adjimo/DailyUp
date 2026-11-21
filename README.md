@@ -95,6 +95,7 @@ Les données vivent uniquement dans le navigateur. Profil → Sauvegarde → Exp
 - **Page « Nouveautés »** (`pages/whatsnew.js`) : fenêtre courte (1 ligne par nouveauté) affichée **une seule fois** au premier lancement après une mise à jour, avant le bilan hebdomadaire. Meta `lastSeenVersion` ; nouvelle installation (tutoriel pas encore fait) : version mémorisée sans rien afficher ; pas d'affichage si `RELEASE_NOTES.version` ≠ `APP_VERSION`.
 - **À chaque mise à jour** : changer `APP_VERSION` (`core/state.js`), `VERSION` (`sw.js`) et réécrire `RELEASE_NOTES` dans `pages/whatsnew.js`.
 - **Contenu des nouveautés v5.1** : barre « Travail de la semaine » (Accueil) ; Planning : « Travail personnel » devient « Temps libre » et occupe toutes les plages disponibles ; To-do : les cycles ne dépassent plus le poids autorisé par semaine.
+- **Accueil, « Travail de la semaine »** : carte au style des boîtes de compétences (`hn-card` : en-tête avec icône chronomètre et pourcentage, une barre « Objectif de la semaine », heures faites / objectif et « Encore … »). Semaine de repos : « Repos » en en-tête, barre grisée, bonus affiché. `renderWeekWork` dans `pages/home.js`.
 - SW `dailyup-v5-1`, `APP_VERSION` 5.1 (utilisateur et admin).
 
 ## v5.0 — Version 5

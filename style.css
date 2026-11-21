@@ -2055,9 +2055,7 @@ input[type="checkbox"]:checked { background-color: var(--accent); border-color: 
 .pl-joker-btn .ico { width: 16px; height: 16px; }
 
 /* ── v5 · Accueil : barre du travail de la semaine, au-dessus des compétences ── */
-.hm-card.hm-week { margin-top: 16px; gap: 8px; }
-
-.hm-card.hm-week { margin-bottom: 8px; }
+.hn-card.hm-week { margin: 16px 0 8px; }   /* v5.1 : même style que les boîtes de compétences */
 
 /* ── v5.1 · Page « Nouveautés » ── */
 .wn-row { align-items: flex-start; }
