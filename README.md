@@ -96,6 +96,7 @@ Les données vivent uniquement dans le navigateur. Profil → Sauvegarde → Exp
 - **À chaque mise à jour** : changer `APP_VERSION` (`core/state.js`), `VERSION` (`sw.js`) et réécrire `RELEASE_NOTES` dans `pages/whatsnew.js`.
 - **Contenu des nouveautés v5.1** : barre « Travail de la semaine » (Accueil) ; Planning : « Travail personnel » devient « Temps libre » et occupe toutes les plages disponibles ; To-do : les cycles ne dépassent plus le poids autorisé par semaine.
 - **Accueil, « Travail de la semaine »** : carte au style des boîtes de compétences (`hn-card` : en-tête avec icône chronomètre et pourcentage, une barre « Objectif de la semaine », heures faites / objectif et « Encore … »). Semaine de repos : « Repos » en en-tête, barre grisée, bonus affiché. `renderWeekWork` dans `pages/home.js`.
+- **Planning, légende** : « Temps libre » retiré de la légende des couleurs (il est calculé, pas ajouté à la main) ; sa couleur reste réglable dans « Couleurs du planning ».
 - SW `dailyup-v5-1`, `APP_VERSION` 5.1 (utilisateur et admin).
 
 ## v5.0 — Version 5
