@@ -56,7 +56,7 @@ function freeCard(b, onTap, day) {
   const isLive = live(day, b.start, b.end);
   return el('div', { class: `pl-card pl-free${b.ev ? ' pl-tap' : ''}${isLive ? ' pl-now' : ''}`, style: `min-height:${hFree(min)}px`, onclick: b.ev ? () => onTap(b.ev) : null }, [
     timeCol(b.start, b.end),
-    el('div', { class: 'pl-body' }, [el('div', { class: 'pl-title' }, [b.title || 'Travail personnel', el('span', { class: 'pl-chip' }, formatDuration(min))])])
+    el('div', { class: 'pl-body' }, [el('div', { class: 'pl-title' }, [b.title || 'Temps libre', el('span', { class: 'pl-chip' }, formatDuration(min))])])
   ]);
 }
 
@@ -218,9 +218,10 @@ function openEditor(ev, week, rerender) {
   const inDay = el('select', {}, DAY_LABELS.map((l, i) => el('option', i === dayIdx ? { value: i + 1, selected: 'selected' } : { value: i + 1 }, l)));
   const inStart = el('input', { type: 'time', value: cur.start || '' });
   const inEnd = el('input', { type: 'time', value: cur.end || '' });
-  let curCat = PLAN_CATS.some(c => c.key === cur.type) ? cur.type : 'autre';
+  const ADD_CATS = PLAN_CATS.filter(c => c.key !== 'libre');   // le temps libre est calculé, on ne l'ajoute pas à la main
+  let curCat = ADD_CATS.some(c => c.key === cur.type) ? cur.type : 'autre';
   // Catégories : pastille de couleur à gauche du nom ; les champs proposés dépendent de la catégorie.
-  const catBox = el('div', { class: 'pl-cats', role: 'radiogroup', 'aria-label': 'Catégorie' }, PLAN_CATS.map(c => el('button', {
+  const catBox = el('div', { class: 'pl-cats', role: 'radiogroup', 'aria-label': 'Catégorie' }, ADD_CATS.map(c => el('button', {
     type: 'button', role: 'radio', 'data-k': c.key, class: 'pl-cat' + (c.key === curCat ? ' on' : ''), 'aria-checked': String(c.key === curCat), onclick: () => setCat(c.key)
   }, [el('span', { class: 'pl-cat-dot', style: `background:var(--ev-${c.key})` }), c.label])));
   const inTeacher = el('input', { type: 'text', value: cur.teacher || '', placeholder: 'Professeur' });

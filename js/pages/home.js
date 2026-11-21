@@ -1,5 +1,9 @@
 // Page Accueil
-import { daysUntil, formatDate } from '../core/dates.js';
+import { daysUntil, formatDate, todayKey } from '../core/dates.js';
+import { addDays, isRestDay, mondayOf } from '../core/calendar.js';
+import { dbAll } from '../core/db.js';
+import { formatDuration } from '../features/planning.js';
+import { weekGoalsFor } from '../features/work-goals.js';
 import { State } from '../core/state.js';
 import { dbPut } from '../core/db.js';
 import { MAX_LEVEL, deriveLevel } from '../core/xp.js';
@@ -82,6 +86,11 @@ export function renderHome(root) {
   if (gam) { fit.appendChild(caracsBox); renderCaracsCard(caracsBox).catch(err => console.error('Caracs card failed', err)); }
   else { fit.classList.add('no-gam'); top.firstChild?.classList.add('full'); }
 
+  // Travail de la semaine : heures saisies / objectif de la semaine (au-dessus des compétences)
+  const weekCard = el('div', { class: 'card hm-card hm-week' });
+  page.appendChild(weekCard);
+  renderWeekWork(weekCard).catch(err => console.error('Week bar failed', err));
+
   // Compétences : une carte par caractéristique, sous la toile
   const skills = el('div', { class: 'hebdo-notes home-skills' });
   page.appendChild(el('h3', { class: 'mb-3 mt-4' }, 'Compétences'));
@@ -89,4 +98,28 @@ export function renderHome(root) {
   renderCaracPanels(skills).catch(err => console.error('Skills failed', err));
 
   root.appendChild(page);
+}
+
+// Barre d'avancement du travail de la semaine en cours : minutes saisies (toutes matières) sur l'objectif hebdomadaire.
+// Semaine de concours (objectif nul) : pas de barre à remplir, le travail saisi est un bonus.
+async function renderWeekWork(card) {
+  const monday = mondayOf(todayKey()), sunday = addDays(monday, 6);
+  const goals = await weekGoalsFor(monday);
+  const logs = (await dbAll('workLog')).filter(l => l.date >= monday && l.date <= sunday);
+  const worked = logs.reduce((t, l) => t + (l.totalMinutes || 0), 0);
+  const goal = Math.round(goals.total || 0);
+  const rest = Array.from({ length: 7 }, (_, i) => addDays(monday, i)).every(isRestDay);
+  if (rest || goal <= 0) {
+    card.innerHTML = `
+      <div class="hm-label hm-label-row"><span>Travail de la semaine</span><span>Repos</span></div>
+      <div class="hm-meter">${progressBar(0, 8)}</div>
+      <div class="hm-subs"><div class="hm-sub">Pas d’objectif</div><div class="hm-sub mute">${worked ? `${formatDuration(worked)} en bonus` : '&nbsp;'}</div></div>`;
+    return;
+  }
+  const pct = Math.round(worked / goal * 100);
+  const left = Math.max(0, goal - worked);
+  card.innerHTML = `
+    <div class="hm-label hm-label-row"><span>Travail de la semaine</span><span>${formatDuration(worked)} / ${formatDuration(goal)}</span></div>
+    <div class="hm-meter">${progressBar(worked / goal, 8)}</div>
+    <div class="hm-subs"><div class="hm-sub"><span style="color:var(--accent);font-weight:700">${pct} %</span> de l’objectif</div><div class="hm-sub mute">${left ? `Encore ${formatDuration(left)}` : 'Objectif atteint'}</div></div>`;
 }
