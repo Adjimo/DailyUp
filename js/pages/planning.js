@@ -132,7 +132,8 @@ export async function renderPlanning(root) {
   }, [el('span', {}, d.label.slice(0, 3)), el('b', {}, String(parseKey(d.date).getDate())),
       el('i', { class: (d.events.length || (d.period?.kind !== 'rest' && (d.info.vacation || d.info.holiday))) ? 'on' : '' })]))));
 
-  root.appendChild(el('div', { class: 'pl-legend' }, PLAN_CATS.map(c => [c.label, `var(--ev-${c.key})`]).map(([l, c]) => el('span', { style: `--c:${c}` }, l))));
+  // Légende : le temps libre est calculé (jamais ajouté à la main), il n'y figure pas.
+  root.appendChild(el('div', { class: 'pl-legend' }, PLAN_CATS.filter(c => c.key !== 'libre').map(c => [c.label, `var(--ev-${c.key})`]).map(([l, c]) => el('span', { style: `--c:${c}` }, l))));
 
   if (week.unscheduled.length) {
     root.appendChild(el('div', { class: 'pl-card pl-colle pl-unsched pl-tap' }, [
