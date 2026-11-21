@@ -100,16 +100,16 @@ function applyOverrides(events, monday, overrides) {
 
 // ── Temps libre ──────────────────────────────────────────────────────────────
 // Plages de travail personnel et pauses repas par jour (0 = lundi … 6 = dimanche).
-// Le temps libre = plages de travail moins les événements ; une plage < 30 min est ignorée.
+// Le temps libre = plages de travail moins les événements ; une plage < 15 min est ignorée (le temps libre occupe toutes les autres plages non occupées).
 const R = (a, b) => [toMin(a), toMin(b)];
 const EVENING = R('18:30', '19:30');
 export const DAY_RULES = [
   { work: [R('08:00', '12:00'), R('12:30', '18:30'), R('19:30', '22:00')], pauses: [R('12:00', '12:30'), EVENING] },   // lundi
   { work: [R('08:00', '12:00'), R('13:00', '18:30'), R('19:30', '22:00')], pauses: [R('12:00', '13:00'), EVENING] },   // mardi
   { work: [R('08:00', '12:00'), R('13:00', '18:30'), R('19:30', '22:00')], pauses: [R('12:00', '13:00'), EVENING] },   // mercredi (DS l'après-midi)
-  { work: [R('08:00', '12:00'), R('14:00', '18:30'), R('19:30', '22:00')], pauses: [R('13:00', '14:00'), EVENING] },   // jeudi (pause repas 13h-14h)
+  { work: [R('08:00', '13:00'), R('14:00', '18:30'), R('19:30', '22:00')], pauses: [R('13:00', '14:00'), EVENING] },   // jeudi (pause repas 13h-14h)
   { work: [R('08:00', '12:00'), R('12:30', '18:30'), R('19:30', '22:00')], pauses: [R('12:00', '12:30'), EVENING] },   // vendredi
-  { work: [R('11:00', '12:00'), R('13:30', '17:30')], pauses: [R('12:00', '13:30'), R('19:30', '21:30')] },                // samedi (11h-12h si pas de TD de SI) + pause repas du soir
+  { work: [R('08:00', '12:00'), R('13:30', '17:30')], pauses: [R('12:00', '13:30'), R('19:30', '21:30')] },                // samedi (cours 8h-10h, TD de SI 10h-12h une semaine sur deux : le temps libre prend tout ce qui reste) + pause repas du soir
   { work: [R('08:00', '12:00'), R('13:30', '18:00')], pauses: [R('12:00', '13:30'), R('19:00', '20:00')] }                 // dimanche + pause repas du soir
 ];
 
@@ -169,7 +169,7 @@ function freeBlocks(events, pauses, libres, dayIndex, custom) {
   let work = mergeRanges([...rules.work, ...rules.pauses.filter(p => p[0] >= first && p[1] <= lastEnd)]);
   if (end) { work = work.filter(w => w[0] < end).map(w => [w[0], Math.min(w[1], end)]); const last = work[work.length - 1]; if (last && last[1] < end && lastEnd < end) last[1] = end; }
   work = mergeRanges([...work, ...libres.filter(l => l.start && l.end).map(l => [toMin(l.start), toMin(l.end)])]);
-  const free = subtractBusy(work, busy, 30);
+  const free = subtractBusy(work, busy, 15);
   for (const f of free) {
     const mid = (toMin(f.start) + toMin(f.end)) / 2;
     const l = libres.find(x => x.start && x.end && toMin(x.start) <= mid && mid < toMin(x.end));

@@ -68,8 +68,11 @@ function generate(w, st, items, fromDay = 1) {
     let guard = cat.length;
     while ((pts < budget || !items.some(i => i.subj === subj && !i.rec)) && guard-- > 0) {
       const c = cat[cur];
+      if (c.enabled === false || has(`${subj}:${c.name}`)) { cur = (cur + 1) % cat.length; continue; }   // élément désactivé : reste dans le cycle, mais n'est plus généré
+      // Le poids de la semaine n'est jamais dépassé (reports compris) : un chapitre qui ne rentre plus attend la semaine suivante
+      // (le curseur ne bouge pas). Seule exception : un chapitre plus lourd que le budget passe seul, quand la matière n'a rien d'autre.
+      if (pts > 0 && pts + c.w > budget) break;
       cur = (cur + 1) % cat.length;
-      if (c.enabled === false || has(`${subj}:${c.name}`)) continue;   // élément désactivé : reste dans le cycle, mais n'est plus généré
       add(subj, `${subj}:${c.name}`, c.name);
       pts += c.w;
       if (period && cur === 0) break;   // fin du tour : on ne recommence pas avant la date de fin
