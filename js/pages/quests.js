@@ -1,5 +1,7 @@
 // Page Quêtes
-import { addDays, isRestDay } from '../core/calendar.js';
+import { MODE_LABELS, addDays, isRestDay, mondayOf, weekMode } from '../core/calendar.js';
+import { weekIndexOf } from '../features/planning-data.js';
+import { dayBar } from '../ui/day-bar.js';
 import { dayKeyFromDate, formatDate, prevWeekKey, todayKey, weekKey, weekStartDate } from '../core/dates.js';
 import { GHOST_BEFORE, dbAll, dbGet } from '../core/db.js';
 
@@ -36,7 +38,12 @@ export function renderToday(root) {
   const todoWrap = el('div', { class: 'mb-5' });
   page.appendChild(todoWrap);
   root.appendChild(page);
-  return renderDayDashboard(dashWrap, (dateKey) => renderDayTodo(todoWrap, dateKey));
+  // La to-do du jour est construite hors écran, puis posée en même temps que le tableau de bord (pas de bloc qui apparaît après coup).
+  const todo = {
+    build: async (dateKey) => { const t = el('div'); await renderDayTodo(t, dateKey); return t; },
+    mount: (t) => todoWrap.replaceChildren(...t.childNodes)
+  };
+  return renderDayDashboard(dashWrap, todo);
 }
 
 
@@ -71,7 +78,7 @@ export async function buildRunsControls(q, wk = weekKey()) {
   return wrap;
 }
 
-export async function renderDayDashboard(root, afterRender) {
+export async function renderDayDashboard(root, todo) {
   // Jour affiché : aujourd'hui par défaut, ou un jour choisi (entre GHOST_BEFORE et aujourd'hui).
   let dateKey = State.dashDate || todayKey();
   if (dateKey > todayKey() || dateKey < GHOST_BEFORE) dateKey = todayKey();
@@ -125,7 +132,7 @@ export async function renderDayDashboard(root, afterRender) {
           <div class="block-title">Couché avant ${bedLabelFor(addDays(dateKey, -1))}</div>
           <div class="dim text-xs">${isToday ? 'Hier soir' : 'La veille de ce jour'} · alimente la Discipline</div>
         </div>
-        <input type="checkbox" class="sleep-check" id="sleep-toggle" aria-label="Couché à l'heure" ${slept ? 'checked' : ''}>
+        <button type="button" class="td-check${slept ? ' on' : ''}" id="sleep-toggle" aria-label="Couché à l'heure" aria-pressed="${slept}"></button>
       </div>`;
 
   let workBlock = '';
@@ -163,17 +170,12 @@ export async function renderDayDashboard(root, afterRender) {
     `;
   }
 
-  root.innerHTML = `
+  const box = document.createElement('div');
+  box.innerHTML = `
     <div class="dash">
       <div class="dash-head">
         <div class="dim text-xs">${isToday ? dayLabel : 'Jour modifié · ' + dayLabel}</div>
         ${wi.ratio >= 1 ? `<span class="text-xs" style="color:var(--accent);">Objectif atteint ${iconHtml('tick')}</span>` : ''}
-      </div>
-      <div class="day-picker">
-        <button class="btn ghost sm" id="dp-prev" aria-label="Jour précédent" ${dateKey <= GHOST_BEFORE ? 'disabled' : ''}>${iconHtml('chevl')}</button>
-        <input class="input" id="dp-date" type="date" min="${GHOST_BEFORE}" max="${todayKey()}" value="${dateKey}" />
-        <button class="btn ghost sm" id="dp-next" aria-label="Jour suivant" ${isToday ? 'disabled' : ''}>${iconHtml('chevr')}</button>
-        ${isToday ? '' : '<button class="btn ghost sm" id="dp-today">Aujourd\'hui</button>'}
       </div>
       ${!isToday && !inCurrentWeek ? '<div class="dim text-xs day-warn">Semaine passée : quêtes et notes de cette semaine sont recalculées automatiquement.</div>' : ''}
       ${sportBlock}
@@ -182,42 +184,42 @@ export async function renderDayDashboard(root, afterRender) {
     </div>
   `;
 
-  // Case sommeil : mise à jour sur place (pas de re-rendu de la page), pour que la case, le liseré de la carte
-  // et l'animation « pop » partent ensemble, comme pour les cases de la to-do.
-  const sleepBox = root.querySelector('#sleep-toggle');
-  sleepBox?.addEventListener('change', async () => {
-    const block = sleepBox.closest('.block');
-    const on = sleepBox.checked;
-    block.classList.toggle('done', on);
-    block.classList.remove('pop');
-    if (on) { void block.offsetWidth; block.classList.add('pop'); }
-    sleepBox.disabled = true;
-    try { await toggleSleepNight(dateKey); await loadAll(); }
-    catch (err) { console.error('Sleep toggle failed', err); sleepBox.checked = !on; block.classList.toggle('done', !on); block.classList.remove('pop'); }
-    sleepBox.disabled = false;
-  });
-
-  // Sélecteur de jour
+  // Bandeau de choix du jour : le même que dans le Planning (semaine ‹ › + 7 jours) ; pas de jour futur.
   const gotoDay = async (key) => {
     State.dashDate = key >= todayKey() ? null : key;
-    await renderDayDashboard(root, afterRender);
+    await renderDayDashboard(root, todo);
   };
-  const shiftDay = (n) => {
-    const d = new Date(dateKey + 'T12:00:00'); d.setDate(d.getDate() + n);
-    return todayKey(d);
-  };
-  root.querySelector('#dp-prev')?.addEventListener('click', () => gotoDay(shiftDay(-1)));
-  root.querySelector('#dp-next')?.addEventListener('click', () => gotoDay(shiftDay(1)));
-  root.querySelector('#dp-today')?.addEventListener('click', () => gotoDay(todayKey()));
-  root.querySelector('#dp-date')?.addEventListener('change', (e) => {
-    const v = e.target.value;
-    if (v && v >= GHOST_BEFORE && v <= todayKey()) gotoDay(v);
+  const monday = mondayOf(dateKey), nowKey = todayKey();
+  box.prepend(dayBar({
+    monday, selected: dateKey, today: nowKey,
+    title: weekIndexOf(monday) !== null ? `Semaine ${weekIndexOf(monday)}` : '', mode: MODE_LABELS[weekMode(monday)] || '',
+    prevDisabled: monday <= mondayOf(GHOST_BEFORE), nextDisabled: monday >= mondayOf(nowKey),
+    onWeek: (delta) => { const t = addDays(dateKey, delta * 7); gotoDay(t > nowKey ? nowKey : t < GHOST_BEFORE ? GHOST_BEFORE : t); },
+    onTitle: () => gotoDay(nowKey),
+    onDay: gotoDay,
+    dayDisabled: (k) => k > nowKey || k < GHOST_BEFORE
+  }));
+
+  // Case sommeil : mise à jour sur place (pas de re-rendu de la page), pour que la case, le liseré de la carte
+  // et l'animation « pop » partent ensemble, comme pour les cases de la to-do.
+  const sleepBox = box.querySelector('#sleep-toggle');
+  let sleepBusy = false;
+  sleepBox?.addEventListener('click', async () => {
+    if (sleepBusy) return;
+    const block = sleepBox.closest('.block');
+    const on = !sleepBox.classList.contains('on');
+    const paint = (v) => { sleepBox.classList.toggle('on', v); sleepBox.setAttribute('aria-pressed', String(v)); block.classList.toggle('done', v); };
+    paint(on);
+    block.classList.remove('pop');
+    if (on) { void block.offsetWidth; block.classList.add('pop'); }
+    sleepBusy = true;
+    try { await toggleSleepNight(dateKey); await loadAll(); }
+    catch (err) { console.error('Sleep toggle failed', err); paint(!on); block.classList.remove('pop'); }
+    sleepBusy = false;
   });
 
-  afterRender?.(dateKey);
-
   if (goalHours > 0 || rest) {
-    const grid = root.querySelector('#subjects-grid');
+    const grid = box.querySelector('#subjects-grid');
     // Matières = sous-compétences de catégorie travail (Maths, Physique, SI / Info, Anglais, Français) ; « Autre » seulement s'il a déjà du temps saisi.
     const keys = [...WORK_KEYS, ...((workLog?.bySubject?.autre || 0) > 0 ? ['autre'] : [])];
     for (const key of keys) {
@@ -245,6 +247,11 @@ export async function renderDayDashboard(root, afterRender) {
       grid.appendChild(sub);
     }
   }
+
+  // Pose atomique : tableau de bord + to-do d'un seul coup (rien ne clignote, rien n'arrive après).
+  const todoNode = todo ? await todo.build(dateKey) : null;
+  root.replaceChildren(...box.childNodes);
+  if (todoNode) todo.mount(todoNode);
 }
 
 // Modal : choisir une semaine, un motif (Malade / Autre) et une note facultative.

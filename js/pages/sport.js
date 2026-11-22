@@ -20,6 +20,12 @@ import { render } from '../ui/router.js';
 // Une sortie ajoutée, supprimée ou modifiée dans une semaine passée change les caractéristiques : on les recalcule (semaines closes, déterministe).
 const refreshCaracs = () => recomputeCaracs().catch(err => console.error('Caracs failed', err));
 
+// Contrôles « sorties de la semaine » construits avant l'affichage de la page (évite qu'ils apparaissent après coup).
+export async function prefetchSport() {
+  const q = State.quests.find(x => x.id === 'wq-runs');
+  State._runsCtl = q ? await buildRunsControls(q) : null;
+}
+
 export function renderSport(root) {
   const page = el('div', { class: 'page' });
   const title = el('div', { class: 'page-title' }, [el('h1', {}, 'Sport')]);
@@ -49,7 +55,9 @@ export function renderSport(root) {
   runsBox.innerHTML = `<div class="block-icon">${iconHtml('run')}</div><div class="block-body"><div class="block-title">Sorties de la semaine</div><div class="dim text-xs">Objectif hebdomadaire</div></div>`;
   page.appendChild(runsBox);
   const runsQ = State.quests.find(q => q.id === 'wq-runs');
-  if (runsQ) buildRunsControls(runsQ).then(c => runsBox.appendChild(c)); else runsBox.remove();
+  if (!runsQ) runsBox.remove();
+  else if (State._runsCtl) { runsBox.appendChild(State._runsCtl); State._runsCtl = null; }   // préchargé : posé sans délai
+  else buildRunsControls(runsQ).then(c => runsBox.appendChild(c));
 
   if (State.activities.length === 0) {
     const empty = el('div', { class: 'card center', style: 'padding:40px; text-align:center;', html: `

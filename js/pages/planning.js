@@ -8,6 +8,7 @@ import { iconHtml } from '../ui/icons.js';
 import { DAY_LABELS, buildWeek, formatDuration, loadOverrides, removeOverride, saveOverride, toMin } from '../features/planning.js';
 
 import { addBtn, el, showToast } from '../ui/helpers.js';
+import { dayBar } from '../ui/day-bar.js';
 import { JOKER_TITLE, JOKERS_PER_WEEK, addJoker, isCurrentWeek, jokerChoices, jokerEvents, removeJoker } from '../features/joker.js';
 import { loadAll } from '../features/seed.js';
 
@@ -20,7 +21,6 @@ const view = { monday: null, day: null };
 const MIN_MONDAY = mondayOf(SCHOOL_START);
 const MAX_MONDAY = mondayOf(YEAR_END);
 
-const fmtShort = (k) => parseKey(k).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 const hhmm = (t) => t.replace(':00', ' h').replace(':', ' h ');
 const range = (a, b) => `${hhmm(a)} – ${hhmm(b)}`;
 
@@ -63,7 +63,7 @@ function freeCard(b, onTap, day) {
 // Pause : pas de boîte, une simple bande en fond (modifiable au toucher comme les autres créneaux).
 function pauseCard(p, onTap) {
   const min = spanMin(p.start, p.end);
-  const tint = p.type === 'trajet' ? ';--ev-pause:var(--ev-trajet)' : '';   // même bande que la pause repas, couleur de la catégorie
+  const tint = '';
   return el('div', { class: 'pl-card pl-pause pl-tap', style: `min-height:${hPause(min)}px${tint}`, onclick: () => onTap(p) }, [
     timeCol(p.start, p.end),
     el('div', { class: 'pl-body' }, [el('div', { class: 'pl-title' }, p.title || 'Pause repas')])
@@ -83,31 +83,37 @@ function dayList(day, mode, onTap) {
 
 export async function renderPlanning(root) {
   if (!root.classList.contains('page')) { const pg = el('div', { class: 'page' }); root.innerHTML = ''; root.appendChild(pg); root = pg; }
+  const host = root;
+  // Rafraîchissement atomique : la nouvelle page est construite hors écran puis échangée d'un bloc (pas de page vide qui clignote).
+  const refresh = async () => { const stage = el('div'); await buildPlanning(stage, refresh); host.replaceChildren(...stage.childNodes); };
+  await buildPlanning(host, refresh);
+}
+
+async function buildPlanning(root, rerender) {
   const today = todayKey();
   if (!view.monday) view.monday = mondayOf(today);
-  const rerender = () => { root.innerHTML = ''; renderPlanning(root); };
   const week = await buildWeek(view.monday);
   if (view.day === null || view.day === undefined) view.day = (today >= week.monday && today <= addDays(week.monday, 6)) ? week.days.findIndex(d => d.date === today) : 0;
-  root.innerHTML = '';
 
   const go = (delta) => {
     const next = addDays(view.monday, delta * 7);
     if (next < MIN_MONDAY || next > MAX_MONDAY) return;
-    view.monday = next; view.day = 0; root.innerHTML = ''; renderPlanning(root);
+    view.monday = next; view.day = 0; rerender();
   };
   const title = week.index !== null ? `Semaine ${week.index}` : 'Semaine';
   root.appendChild(el('div', { class: 'page-title' }, [
     el('h1', {}, 'Planning'),
     el('button', { class: 'btn ghost sm', 'aria-label': 'Couleurs du planning', onclick: () => openColors(rerender), html: iconHtml('target') })
   ]));
-  root.appendChild(el('div', { class: 'pl-head' }, [
-    el('button', { class: 'pl-nav', onclick: () => go(-1), 'aria-label': 'Semaine précédente', html: iconHtml('chevl') }),
-    el('div', { class: 'pl-head-mid' }, [
-      el('div', { class: 'pl-week' }, `${title !== 'Semaine' ? title + ' · ' : ''}${fmtShort(week.monday)} – ${fmtShort(addDays(week.monday, 6))}`),
-      MODE_LABELS[week.mode] ? el('div', { class: 'pl-mode' }, MODE_LABELS[week.mode]) : null
-    ]),
-    el('button', { class: 'pl-nav', onclick: () => go(1), 'aria-label': 'Semaine suivante', html: iconHtml('chevr') })
-  ]));
+  root.appendChild(dayBar({
+    monday: week.monday, selected: week.days[view.day].date, today,
+    title: title !== 'Semaine' ? title : '', mode: MODE_LABELS[week.mode] || '',
+    prevDisabled: addDays(view.monday, -7) < MIN_MONDAY, nextDisabled: addDays(view.monday, 7) > MAX_MONDAY,
+    onWeek: go,
+    onTitle: () => { view.monday = mondayOf(today); view.day = null; rerender(); },
+    onDay: (k) => { view.day = week.days.findIndex(d => d.date === k); rerender(); },
+    dot: (k) => { const d = week.days.find(x => x.date === k); return d.events.length || (d.period?.kind !== 'rest' && (d.info.vacation || d.info.holiday)); }
+  }));
   // Temps libre de la semaine et travail attendu (même calcul que les quêtes : temps libre × % des Options ;
   // avant la 1re semaine « dynamique », l'ancien objectif fixe).
   const goals = await weekGoalsFor(week.monday);
@@ -126,11 +132,6 @@ export async function renderPlanning(root) {
     root.appendChild(el('button', { type: 'button', class: 'pl-joker-note', onclick: () => openJoker(week, goals, rerender, jokers[0]) },
       [el('span', { html: iconHtml('star') }), `Joker : soirée du ${jd.label.toLowerCase()} ${parseKey(jd.date).getDate()} banalisée`]));
   }
-  root.appendChild(el('div', { class: 'pl-days' }, week.days.map((d, i) => el('button', {
-    class: `pl-day${i === view.day ? ' active' : ''}${d.date === today ? ' today' : ''}`,
-    onclick: () => { view.day = i; root.innerHTML = ''; renderPlanning(root); }
-  }, [el('span', {}, d.label.slice(0, 3)), el('b', {}, String(parseKey(d.date).getDate())),
-      el('i', { class: (d.events.length || (d.period?.kind !== 'rest' && (d.info.vacation || d.info.holiday))) ? 'on' : '' })]))));
 
   // Légende : le temps libre est calculé (jamais ajouté à la main), il n'y figure pas.
   root.appendChild(el('div', { class: 'pl-legend' }, PLAN_CATS.filter(c => c.key !== 'libre').map(c => [c.label, `var(--ev-${c.key})`]).map(([l, c]) => el('span', { style: `--c:${c}` }, l))));
@@ -234,7 +235,7 @@ function openEditor(ev, week, rerender) {
     const prev = curCat; curCat = k;
     catBox.querySelectorAll('.pl-cat').forEach(b => { const on = b.dataset.k === k; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
     fTeacher.hidden = !showsTeacher(); fRoom.hidden = !showsRoom();
-    const DEF = { pause: 'Pause repas', trajet: 'Retour à la maison' };   // intitulé proposé pour ces catégories
+    const DEF = { pause: 'Pause repas' };   // intitulé proposé pour ces catégories
     if (DEF[k] && (!inTitle.value.trim() || inTitle.value.trim() === DEF[prev])) inTitle.value = DEF[k];
     else if (!DEF[k] && DEF[prev] && inTitle.value.trim() === DEF[prev]) inTitle.value = '';
   }
