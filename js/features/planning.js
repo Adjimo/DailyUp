@@ -183,11 +183,12 @@ export async function buildWeek(monday, overrides) {
   const ovs = overrides || await loadOverrides();
   const mode = weekMode(monday);
   const all = applyOverrides([...baseEvents(monday, mode), ...basePauses(monday)], monday, ovs);
+  for (const e of all) if (e.type === 'trajet') e.type = 'autre';   // catégorie « Trajet » supprimée : les anciens créneaux deviennent « Autre »
   const days = [];
   for (let i = 0; i < 7; i++) {
     const date = addDays(monday, i);
     const dayAll = all.filter(e => e.date === date && e.start).sort((a, b) => a.start.localeCompare(b.start));
-    const isPause = (e) => e.type === 'pause' || e.type === 'trajet';   // le trajet compte comme une pause : retiré du temps libre de travail
+    const isPause = (e) => e.type === 'pause';
     const events = dayAll.filter(e => !isPause(e) && e.type !== 'libre');
     const pauses = dayAll.filter(isPause);
     const libres = dayAll.filter(e => e.type === 'libre');

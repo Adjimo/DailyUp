@@ -53,7 +53,6 @@ export const PLAN_CATS = [
   { key: 'colle', label: 'Colle', def: '#C8814A' },
   { key: 'ds',    label: 'DS',    def: '#D95F36' },
   { key: 'pause', label: 'Pause repas', def: '#7A7468' },
-  { key: 'trajet', label: 'Trajet', def: '#6F8089' },   // retour à la maison : comme une pause, hors temps libre de travail
   { key: 'libre', label: 'Temps libre', def: '#6F6859' },
   { key: 'autre', label: 'Autre', def: '#B0705A' }
 ];
