@@ -40,7 +40,7 @@ export function renderToday(root) {
   root.appendChild(page);
   // La to-do du jour est construite hors écran, puis posée en même temps que le tableau de bord (pas de bloc qui apparaît après coup).
   const todo = {
-    build: async (dateKey) => { const t = el('div'); await renderDayTodo(t, dateKey); return t; },
+    build: async (dateKey) => { const t = el('div'); await renderDayTodo(t, dateKey, todoWrap); return t; },
     mount: (t) => todoWrap.replaceChildren(...t.childNodes)
   };
   return renderDayDashboard(dashWrap, todo);
