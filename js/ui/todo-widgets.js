@@ -36,14 +36,16 @@ const countHead = (title, items) => {
 };
 
 // ── To-do du jour (page Aujourd'hui) ─────────────────────────────────────────
-export async function renderDayTodo(root, dateKey) {
+// `host` : conteneur affiché à l'écran. Le bloc peut être construit hors écran dans `root` (puis déplacé) :
+// les rafraîchissements (cocher, supprimer, ajouter) reconstruisent alors et remplacent le contenu de `host`, pas celui de `root`.
+export async function renderDayTodo(root, dateKey, host = root) {
   await ensureTodo();
   root.innerHTML = '';
   const today = todayKey();
   const monday = mondayOf(dateKey);
   const editable = monday === mondayOf(today);
   const day = isoDay(dateKey);
-  const rerender = () => renderDayTodo(root, dateKey);
+  const rerender = async () => { const stage = el('div'); await renderDayTodo(stage, dateKey, host); host.replaceChildren(...stage.childNodes); };
   const change = async (fn) => { await fn(); rerender(); };
   const items = (await loadWeekTodo(monday)).filter(i => !i.carriedTo);
 
