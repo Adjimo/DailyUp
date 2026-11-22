@@ -1,11 +1,11 @@
 // Navigation entre les pages
 import { State } from '../core/state.js';
-import { renderHome } from '../pages/home.js';
+import { prefetchWeekWork, renderHome } from '../pages/home.js';
 import { renderOptions } from '../pages/options.js';
 import { renderPlanning } from '../pages/planning.js';
 import { renderToday } from '../pages/quests.js';
 import { renderTodoSettings } from '../pages/todo-settings.js';
-import { renderSport } from '../pages/sport.js';
+import { prefetchSport, renderSport } from '../pages/sport.js';
 import { renderStats } from '../pages/stats.js';
 import { prefetchCaracs } from '../pages/caracs-card.js';
 
@@ -35,7 +35,8 @@ function syncTabs(route) {
 
 // Données à charger avant d'afficher la page (évite qu'un bloc n'apparaisse après coup).
 async function prefetchRoute(route) {
-  if (route === 'home') await prefetchCaracs();
+  if (route === 'home') await Promise.all([prefetchCaracs(), prefetchWeekWork()]);
+  if (route === 'sport') await prefetchSport();
 }
 
 export function navigate(route) {
@@ -49,7 +50,7 @@ export function navigate(route) {
 
   const prep = STAGED.has(route) ? buildStage(route) : prefetchRoute(route).then(() => null);
   const show = (stage) => {
-    if (stage) { renderToken++; commit(view, stage); } else render();
+    if (stage) { renderToken++; commit(view, stage); } else render(true);
   };
 
   if (!prev || prev === route || reduceMotion() || !view.animate) {
@@ -81,7 +82,7 @@ export function navigate(route) {
 const PAGES = { home: renderHome, planning: renderPlanning, today: renderToday, todo: renderTodoSettings, sport: renderSport, stats: renderStats, options: renderOptions };
 // Pages dont le contenu se remplit après coup (lectures de données) : on les construit hors écran,
 // puis on les pose d'un seul bloc, pour qu'aucune carte n'apparaisse ni ne se déforme en cours de route.
-const STAGED = new Set(['todo', 'today']);
+const STAGED = new Set(['todo', 'today', 'planning']);
 let renderToken = 0;
 
 async function buildStage(route) {
@@ -91,17 +92,19 @@ async function buildStage(route) {
 }
 const commit = (view, stage) => view.replaceChildren(...stage.childNodes);
 
-export function render() {
+// Re-rendu de la page courante. Pages « staged » : construites hors écran puis posées d'un bloc. Autres pages : leurs données sont
+// préchargées AVANT de vider l'écran (prefetched = déjà fait par navigate), donc rien n'apparaît après coup ni ne clignote.
+export function render(prefetched = false) {
   const view = document.getElementById('view');
   const route = State.currentRoute;
   if (!PAGES[route]) return;
+  const token = ++renderToken;
   if (STAGED.has(route)) {
-    const token = ++renderToken;
     return buildStage(route).then(stage => { if (token === renderToken) commit(view, stage); });
   }
-  renderToken++;
-  view.innerHTML = '';
-  PAGES[route](view);
+  const paint = () => { if (token !== renderToken) return; view.innerHTML = ''; PAGES[route](view); };
+  if (prefetched) return paint();
+  return prefetchRoute(route).catch(() => {}).then(paint);
 }
 
 // ── Navigation par balayage horizontal entre les onglets ─────────────────────
