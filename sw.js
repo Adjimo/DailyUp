@@ -62,6 +62,7 @@ const ASSETS = [
   './js/pages/sport.js',
   './js/pages/stats.js',
   './js/ui/helpers.js',
+  './js/ui/day-bar.js',
   './js/ui/icons.js',
   './js/ui/router.js',
   './manifest.json',

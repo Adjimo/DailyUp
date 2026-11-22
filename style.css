@@ -2062,3 +2062,13 @@ input[type="checkbox"]:checked { background-color: var(--accent); border-color: 
 .wn-ico { width: 20px; flex: none; display: grid; place-items: center; padding-top: 1px; }
 .wn-ico .ico { width: 16px; height: 16px; }
 .wn-row b { font-weight: 600; color: var(--gold); }
+
+/* ── Bandeau de jour partagé (Planning et Aujourd'hui) ── */
+.day-bar { margin-bottom: 4px; }
+.pl-head-mid { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+.pl-nav[disabled], .pl-day[disabled] { opacity: .35; pointer-events: none; }
+
+/* ── Case à cocher unique : la même (.td-check) pour un élément de to-do et pour la nuit réussie ── */
+.td-check.on { background-color: var(--accent); border-color: var(--accent); background-image: var(--ck); }
+.block.sleep.pop .td-check { animation: td-pop 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+@media (prefers-reduced-motion: reduce) { .block.sleep.pop .td-check { animation: none; } }

@@ -59,6 +59,11 @@ Les données vivent uniquement dans le navigateur. Profil → Sauvegarde → Exp
 
 ## v5.0 (suite)
 
+- **Fluidité des écrans** : plus de clignotement quand on reclique sur un onglet. Le Planning est construit hors écran puis posé d'un bloc (`STAGED` dans `ui/router.js`) ; « Aujourd'hui » pose tableau de bord et « À faire » ensemble ; Sport (contrôles des sorties) et Accueil (barre de la semaine) préchargent leurs données avant de vider l'écran (`prefetchRoute`, `render(prefetched)`).
+- **Bandeau de jour commun** : `ui/day-bar.js` (semaine ‹ › + 7 jours, toucher le titre revient à aujourd'hui), utilisé par le Planning et par « Aujourd'hui » (jours futurs désactivés).
+- **Case unique** : la nuit réussie utilise le même bouton `.td-check` que la to-do (même style, même animation).
+- **Catégorie « Trajet » supprimée** ; les anciens créneaux de ce type deviennent « Autre ».
+
 - **Accueil** : barre « Travail de la semaine » au-dessus des compétences (heures saisies / objectif de la semaine, même style que les autres cartes ; en semaine de concours : « Repos », heures en bonus). `renderWeekWork` dans `pages/home.js`.
 - **To-do, cycle** : le poids (budget) de la semaine n'est plus jamais dépassé, reports compris : un chapitre qui ne rentre plus attend la semaine suivante (le curseur ne bouge pas) ; seul un chapitre plus lourd que le budget passe seul (ex. EM8 = 12 pts). Avant, la boucle ajoutait un chapitre tant que le total était sous le budget, donc finissait au-dessus (12, 13, 15 pts pour un budget de 10). Les semaines déjà générées ne sont pas modifiées. (`generate` dans `features/todo.js`)
 - **Planning** : « Travail personnel » devient « Temps libre » et occupe toutes les plages libres des horaires de la journée : samedi, début de journée à 8 h (plus de trou 10 h – 11 h les semaines sans TD de SI) ; jeudi, plage jusqu'à 13 h (pause repas à 13 h) ; durée minimale d'une plage libre ramenée de 30 à 15 min. Le temps libre (donc les objectifs) augmente d'une heure les samedis sans TD de SI. L'option « Temps libre » n'est plus proposée à l'ajout d'un créneau (sa couleur reste réglable).
