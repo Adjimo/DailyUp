@@ -12,7 +12,7 @@ import { recomputeAllRecords, recomputeAllXp } from './pages/sport.js';
 import { applyPrefsToShell, loadPrefs } from './features/prefs.js';
 import { startOnboarding } from './pages/onboarding.js';
 import { prefsNow } from './features/prefs.js';
-import { showToast } from './ui/helpers.js';
+import { showToast, initPressFeedback } from './ui/helpers.js';
 import { hydrateStaticIcons } from './ui/icons.js';
 import { initSwipeNav, navigate } from './ui/router.js';
 import { IS_ADMIN } from './core/state.js';
@@ -94,6 +94,7 @@ export async function init() {
   });
 
   initSwipeNav();
+  initPressFeedback();
   navigate('home');
   if (!prefsNow().onboarded) setTimeout(startOnboarding, 300);   // tutoriel d'inscription, une seule fois
   // Rappel d'export JSON (au plus une fois par jour), après les autres notifications de lancement.
