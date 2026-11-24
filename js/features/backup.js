@@ -11,7 +11,7 @@ import { loadAll } from './seed.js';
 import { runsGoalFor } from './weekly-goals.js';
 import { SUBJECTS, computeWorkXp } from './work.js';
 import { recomputeAllRecords, recomputeAllXp } from '../pages/sport.js';
-import { el, escapeHtml, showToast } from '../ui/helpers.js';
+import { el, escapeHtml, showToast, onAction } from '../ui/helpers.js';
 import { iconHtml } from '../ui/icons.js';
 import { markExport } from './storage.js';
 import { bedLabelFor, bedMinFor, prefsNow } from './prefs.js';
@@ -568,17 +568,17 @@ function openNotificationModal(existing, onDone) {
   modal.querySelector('.gpx-preview-close').addEventListener('click', close);
   modal.querySelector('.nt-cancel').addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-  modal.querySelector('.nt-del')?.addEventListener('click', async () => {
+  onAction(modal.querySelector('.nt-del'), async () => {
     await saveCustomReminders((await getCustomReminders()).filter(c => c.id !== existing.id));
     close(); onDone?.();
   });
-  modal.querySelector('.nt-ok').addEventListener('click', async () => {
+  onAction(modal.querySelector('.nt-ok'), async () => {
     const err = modal.querySelector('.nt-err');
     const label = input.value.trim();
     const time = timeIn.value;
-    if (!label) { err.textContent = 'Choisis ou écris un motif.'; return; }
-    if (!time) { err.textContent = 'Choisis une heure.'; return; }
-    if (!days.length) { err.textContent = 'Choisis au moins un jour.'; return; }
+    if (!label) { err.textContent = 'Choisis ou écris un motif.'; return false; }
+    if (!time) { err.textContent = 'Choisis une heure.'; return false; }
+    if (!days.length) { err.textContent = 'Choisis au moins un jour.'; return false; }
     const repeat = repeatIn.checked;
     const pending = repeat ? [] : nextDatesFor(days, time);
     const list = await getCustomReminders();
@@ -650,12 +650,12 @@ export async function renderRemindersCard(card) {
     const cur = await getReminders(); cur.mode = b.dataset.mode; cur.lastFired = {}; await saveReminders(cur);
     renderRemindersCard(card); checkReminders().catch(() => {});
   }));
-  card.querySelector('#rem-perm')?.addEventListener('click', async () => {
+  onAction(card.querySelector('#rem-perm'), async () => {
     const st = await askPermission();
     await renderRemindersCard(card);
     if (st === 'denied' || st === 'unsupported') showHelp(st);
   });
-  card.querySelector('#rem-auto')?.addEventListener('click', async () => {
+  onAction(card.querySelector('#rem-auto'), async () => {
     const cur = await getReminders();
     cur.mode = 'auto'; cur.work.on = true; cur.sleep.on = true; cur.lastFired = {};
     await saveReminders(cur);
