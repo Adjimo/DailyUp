@@ -20,7 +20,7 @@ export function hoursEditor(hours, onChange = () => {}) {
   const pills = el('div', { class: 'ob-days' });
   const panel = el('div', {});
   root.append(pills, panel);
-  const draw = () => {
+  const draw = (applied = false) => {
     const h = hours[day];
     pills.replaceChildren(...SHORT.map((l, k) => el('button', { type: 'button', class: 'ob-pill' + (k === day ? ' on' : ''), 'aria-label': DAY_LABELS[k], onclick: () => { day = k; draw(); } }, l)));
     const wk = day >= 5;   // week-end
@@ -29,8 +29,10 @@ export function hoursEditor(hours, onChange = () => {}) {
     h.end = clamp(h.end, eMin, eMax); h.bed = clamp(h.bed, 21 * 60, 24 * 60);
     const end = slider('Fin de travail', eMin, eMax, h.end, (v) => { h.end = v; if (h.bed < v) { h.bed = v; bed.input.value = v; bed.out.textContent = fmtMin(v); } onChange(); });
     const bed = slider('Coucher', 21 * 60, 24 * 60, h.bed, (v) => { h.bed = v; if (h.end > v) { h.end = v; end.input.value = v; end.out.textContent = fmtMin(v); } onChange(); });
+    const applyAll = el('button', { type: 'button', class: 'btn ghost sm' + (applied ? ' is-done' : ''), onclick: () => { const c = { ...hours[day] }; hours.forEach((_, k) => { hours[k] = { ...c }; }); onChange(); draw(true); } }, 'Même chose tous les jours');
+    if (applied) setTimeout(() => applyAll.classList.remove('is-done'), 1100);
     panel.replaceChildren(el('div', { class: 'ob-dayname' }, DAY_LABELS[day]), end.wrap, bed.wrap,
-      el('button', { type: 'button', class: 'btn ghost sm', onclick: () => { const c = { ...hours[day] }; hours.forEach((_, k) => { hours[k] = { ...c }; }); onChange(); draw(); } }, 'Même chose tous les jours'));
+      applyAll);
   };
   draw();
   return root;

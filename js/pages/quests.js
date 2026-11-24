@@ -19,7 +19,7 @@ import { RUNS_GOAL_MAX, getSleepLog, runsGoalFor, setRunsGoal, toggleSleepNight 
 import { WORK_KEYS } from '../features/competences.js';
 import { SUBJECTS, computeWorkXp, formatHours, formatMinutes, parseTimeInput } from '../features/work.js';
 
-import { el, escapeHtml, showToast } from '../ui/helpers.js';
+import { el, escapeHtml, showToast, onAction } from '../ui/helpers.js';
 
 import { iconHtml } from '../ui/icons.js';
 import { render } from '../ui/router.js';
@@ -327,17 +327,17 @@ export async function showRunsExcuseModal(q) {
   $('#ex-reason').addEventListener('change', syncReq);
   syncReq(); refresh();
 
-  $('#ex-save').addEventListener('click', async () => {
+  onAction($('#ex-save'), async () => {
     const reason = $('#ex-reason').value;
     const note = $('#ex-note').value.trim();
-    if (reason === 'autre' && !note) { showToast({ type: 'err', title: 'Précision requise', text: 'Explique le motif « Autre ».' }); return; }
+    if (reason === 'autre' && !note) { showToast({ type: 'err', title: 'Précision requise', text: 'Explique le motif « Autre ».' }); return false; }
     const { refund } = await excuseQuestWeek(q.id, $('#ex-week').value, reason, note);
     await loadAll();
     close();
     render();
     showToast({ type: 'xp', title: 'Malus justifié', text: refund > 0 ? `+${refund} XP rendus` : 'Aucun malus pour cette semaine' });
   });
-  $('#ex-cancel-excuse').addEventListener('click', async () => {
+  onAction($('#ex-cancel-excuse'), async () => {
     await cancelExcuse(q.id, $('#ex-week').value);
     await loadAll();
     close();

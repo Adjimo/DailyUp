@@ -89,14 +89,14 @@ export async function renderCaracsSettings(root, forceOpen = false) {
     showToast({ type: 'xp', icon: 'check', title: 'Caractéristiques recalculées', text: 'Réglages enregistrés.' }, 3000);
   };
   const reset = async () => {
-    if (!confirm('Rétablir tous les réglages par défaut et recalculer les caractéristiques ?')) return;
+    if (!confirm('Rétablir tous les réglages par défaut et recalculer les caractéristiques ?')) return false;
     await saveCaracSettings({ workPct: DEFAULT_SETTINGS.workPct, subjectWeights: { ...DEFAULT_SETTINGS.subjectWeights } });
     const nx = fold.nextSibling; fold.remove();
     await renderCaracsSettings(root, true);
     if (nx) root.insertBefore(root.lastChild, nx);
     showToast({ type: 'xp', icon: 'check', title: 'Réglages par défaut', text: 'Caractéristiques recalculées.' }, 3000);
   };
-  const bad = (text) => showToast({ type: 'err', title: 'Valeur invalide', text }, 3500);
+  const bad = (text) => { showToast({ type: 'err', title: 'Valeur invalide', text }, 3500); return false; };
 
   card.appendChild(el('div', { class: 'cs-actions' }, [
     el('button', { class: 'btn ghost', onclick: reset }, 'Par défaut'),

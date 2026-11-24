@@ -254,7 +254,7 @@ function openEditor(ev, week, rerender) {
 
   const save = async () => {
     const f = fields();
-    if (!f.title || !f.start || !f.end || f.end <= f.start) { inEnd.classList.add('pl-bad'); return; }
+    if (!f.title || !f.start || !f.end || f.end <= f.start) { inEnd.classList.add('pl-bad'); return false; }
     const id = `ov-${Date.now()}`;
     if (isNew) await saveOverride({ id, scope, weekKey: week.monday, op: 'add', fields: f, createdAt: stamp() });
     else await saveOverride({ id, scope, weekKey: week.monday, op: 'modify', targetId: scope === 'all' ? ev.recurKey : ev.id, fields: f, createdAt: stamp() });
@@ -381,7 +381,7 @@ function openBlocks({ title, sub, blocks, save, reset, resetLabel, rerender }) {
     const ok = rows.every(r => r.start && r.end && r.end > r.start);
     const sorted = [...rows].sort((a, b) => a.start.localeCompare(b.start));
     const overlap = sorted.some((r, i) => i > 0 && r.start < sorted[i - 1].end);
-    if (!ok || overlap) { msg.textContent = !ok ? 'Chaque bloc doit finir après son début.' : 'Les blocs ne doivent pas se chevaucher.'; msg.classList.add('pl-bad-t'); return; }
+    if (!ok || overlap) { msg.textContent = !ok ? 'Chaque bloc doit finir après son début.' : 'Les blocs ne doivent pas se chevaucher.'; msg.classList.add('pl-bad-t'); return false; }
     await save(sorted.map(r => ({ start: r.start, end: r.end, kind: r.kind })));
     finish();
   };

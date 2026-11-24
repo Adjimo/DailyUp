@@ -12,7 +12,7 @@ import { SPORT_TYPES, isRunActivity } from '../features/schedule.js';
 import { loadAll } from '../features/seed.js';
 import { runsGoalFor } from '../features/weekly-goals.js';
 import { SUBJECTS, computeWorkXp } from '../features/work.js';
-import { el, escapeHtml, showToast } from '../ui/helpers.js';
+import { el, escapeHtml, showToast, onAction } from '../ui/helpers.js';
 import { buildRunsControls } from './quests.js';
 import { iconHtml } from '../ui/icons.js';
 import { render } from '../ui/router.js';
@@ -120,8 +120,8 @@ export function renderSport(root) {
     page.appendChild(card);
     setTimeout(() => {
       card.querySelector('#edit-act').addEventListener('click', () => editActivity(sel));
-      card.querySelector('#del-act').addEventListener('click', async () => {
-        if (!confirm(`Supprimer "${sel.name}" ?`)) return;
+      onAction(card.querySelector('#del-act'), async () => {
+        if (!confirm(`Supprimer "${sel.name}" ?`)) return false;
         const ok = await deleteActivity(sel);
         if (!ok) return;
         State.currentActivity = State.activities[0] || null;

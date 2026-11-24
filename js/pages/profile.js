@@ -4,7 +4,7 @@ import { dbAll } from '../core/db.js';
 import { APP_VERSION, State } from '../core/state.js';
 import { storageStatus, daysSince } from '../features/storage.js';
 import { downloadAutoBackup, exportData, onImportFile, renderRemindersCard } from '../features/backup.js';
-import { el } from '../ui/helpers.js';
+import { el, onAction } from '../ui/helpers.js';
 import { iconHtml } from '../ui/icons.js';
 
 // Sections du profil (compétences, bilan, rappels, sauvegarde), affichées en bas de l'Accueil.
@@ -39,7 +39,7 @@ export function renderProfileSections(page) {
     <div class="dim text-xs mt-3" id="storage-info"></div>
   `;
   setTimeout(async () => {
-    saveCard.querySelector('#btn-export').addEventListener('click', exportData);
+    onAction(saveCard.querySelector('#btn-export'), exportData);
     saveCard.querySelector('#import-file').addEventListener('change', onImportFile);
     // État de la protection des données (stockage persistant, dernier export).
     const st = await storageStatus();
@@ -62,7 +62,7 @@ export function renderProfileSections(page) {
         <div class="mt-2">Télécharger une sauvegarde :</div><div class="auto-backup-list">${items}</div>
       `;
       infoEl.querySelectorAll('.auto-backup-item').forEach(btn => {
-        btn.addEventListener('click', async () => {
+        onAction(btn, async () => {
           await downloadAutoBackup(btn.dataset.date);
         });
       });
