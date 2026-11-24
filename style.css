@@ -2087,3 +2087,33 @@ input[type="checkbox"]:checked { background-color: var(--accent); border-color: 
 .hm2-col { display: flex; flex-direction: column; gap: 3px; }
 .hm2-col .heatmap-cell { width: 19px; height: 19px; aspect-ratio: auto; }
 .hm2-hint { margin-right: auto; }
+
+/* ===== Retour visuel des boutons ===== */
+.btn-ripple { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(232,168,110,.45) 0%, rgba(232,168,110,0) 70%); transform: scale(0); opacity: .9; pointer-events: none; animation: btn-ripple .55s ease-out forwards; z-index: 0; }
+@keyframes btn-ripple { to { transform: scale(1); opacity: 0; } }
+
+/* Action en cours : libellé masqué, pastille qui tourne */
+.btn.is-busy, .btn-gpx.is-busy { color: transparent !important; pointer-events: none; }
+.btn.is-busy > *, .btn-gpx.is-busy > * { opacity: 0; }
+.btn.is-busy::after, .btn-gpx.is-busy::after { content: ''; position: absolute; inset: 0; margin: auto; width: 16px; height: 16px; border: 2px solid rgba(232,168,110,.35); border-top-color: var(--gold); border-radius: 50%; animation: rotate .7s linear infinite; }
+
+/* Terminé : ✓ qui jaillit, bordure et fond verts le temps d'un instant */
+.btn.is-done, .btn-gpx.is-done { color: transparent !important; border-color: #6fae7a; background: rgba(111,174,122,.16); pointer-events: none; }
+.btn.is-done > *, .btn-gpx.is-done > * { opacity: 0; }
+.btn.is-done::after, .btn-gpx.is-done::after { content: '\2713'; position: absolute; inset: 0; display: grid; place-items: center; color: #7fc08b; font-size: 1.15rem; font-weight: 700; animation: pop .35s ease-out; }
+
+/* Saisie refusée : secousse */
+.btn.is-shake, .btn-gpx.is-shake { animation: btn-shake .4s ease; border-color: var(--danger); }
+@keyframes btn-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+
+/* Toucher des boutons « nus » (icônes, pastilles, cartes cliquables, dépliants) */
+button:not(.btn):not(.btn-gpx):not(.tab) { transition: transform .12s ease, opacity .12s ease, background-color .2s ease; }
+button:not(.btn):not(.btn-gpx):not(.tab):not(:disabled):active { transform: scale(.93); opacity: .8; }
+button.card:not(:disabled):active { transform: scale(.985); opacity: .9; }
+summary.cs-fold-head { transition: background-color .2s ease, transform .12s ease; }
+summary.cs-fold-head:active { transform: scale(.99); background-color: rgba(200,129,74,.08); }
+@media (prefers-reduced-motion: reduce) {
+  .btn-ripple { display: none; }
+  .btn.is-busy::after, .btn-gpx.is-busy::after { animation-duration: 1.6s; }
+  .btn.is-shake, .btn-gpx.is-shake, .btn.is-done::after { animation: none; }
+}
