@@ -32,7 +32,13 @@ export function arePenaltiesActive(refDate = new Date()) {
 
 // Paliers de malus appliqués sur le XP qu'aurait rapporté la quête à 100%.
 // Plus tu es loin de l'objectif, plus tu perds.
-export function malusFactorFromRatio(ratio) {
+// Sport (quête de sorties) : malus plafonné à 20 % (SPORT_MALUS_CAP), le travail garde ses paliers.
+export const SPORT_MALUS_CAP = 0.20;
+export function malusFactorFromRatio(ratio, questId) {
+  const f = malusRawFactor(ratio);
+  return questId === 'wq-runs' ? Math.min(f, SPORT_MALUS_CAP) : f;
+}
+function malusRawFactor(ratio) {
   if (ratio >= 1)    return 0;
   if (ratio >= 0.8)  return 0.10;
   if (ratio >= 0.5)  return 0.20;
@@ -135,7 +141,7 @@ export async function computeWeekPenalties(wk) {
     const exKey = `${wk}|${q.id}`;
     if (excuses[exKey]) { excusedKeys.push(exKey); continue; }
     if (q.type === 'weekly-hours' && await questGoalHours(q, wk, gctxM) <= 0) continue;   // objectif nul (concours) : rien d'attendu, donc rien de raté
-    const f = malusFactorFromRatio(ratio);
+    const f = malusFactorFromRatio(ratio, q.id);
     if (f > 0) { malusFactor += f; malusDetails.push({ questId: q.id, factor: f, ratio }); }
   }
   malusFactor = Math.min(fullRules ? 1 : 0.8, malusFactor);
