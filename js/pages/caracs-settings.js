@@ -8,6 +8,23 @@ import { iconHtml } from '../ui/icons.js';
 // Répartition du travail entre matières (poids en %, normalisés) ; l'objectif en heures vient du temps libre × % de travail.
 const SUBJECT_LABELS = { maths: 'Maths', physique: 'Physique', si: 'SI / Info', langues: 'Anglais', francais: 'Français' };
 
+// Renormalise les poids des matières pour que le total fasse 100 % : la valeur modifiée est gardée,
+// les autres se répartissent le reste proportionnellement (arrondis par plus grands restes).
+export function normalizeWeights(weights, keep) {
+  const keys = Object.keys(weights);
+  const kv = Math.min(100, Math.max(0, Math.round(weights[keep]) || 0));
+  const others = keys.filter(k => k !== keep);
+  const rest = 100 - kv;
+  const sum = others.reduce((t, k) => t + Math.max(0, weights[k] || 0), 0);
+  const raw = others.map(k => (sum > 0 ? Math.max(0, weights[k] || 0) / sum : 1 / others.length) * rest);
+  const out = { [keep]: kv };
+  const floors = raw.map(Math.floor);
+  let left = rest - floors.reduce((a, b) => a + b, 0);
+  raw.map((r, i) => [r - floors[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0) { floors[i]++; left--; } });
+  others.forEach((k, i) => { out[k] = floors[i]; });
+  return out;
+}
+
 const num = (v) => parseFloat(String(v).replace(',', '.'));
 
 function field(label, id, value, { min = 0, max = 100, step = 1, unit = '' } = {}) {
@@ -34,6 +51,22 @@ export async function renderCaracsSettings(root, forceOpen = false) {
     ...Object.keys(SUBJECT_LABELS).map(k => field(SUBJECT_LABELS[k], `cs-sw-${k}`, cfg.subjectWeights[k], { max: 100, unit: '%' }))
   );
 
+  // Renormalisation automatique : dès qu'une part change, les autres s'ajustent pour totaliser 100 %.
+  const subjKeys = Object.keys(SUBJECT_LABELS);
+  const inp = (k) => card.querySelector(`#cs-sw-${k}`);
+  for (const k of subjKeys) {
+    inp(k).addEventListener('change', () => {
+      const cur = Object.fromEntries(subjKeys.map(x => [x, Math.max(0, num(inp(x).value) || 0)]));
+      const norm = normalizeWeights(cur, k);
+      subjKeys.forEach(x => { inp(x).value = norm[x]; });
+    });
+  }
+  const total = subjKeys.reduce((t, k) => t + (Number(cfg.subjectWeights[k]) || 0), 0);
+  if (total !== 100 && total > 0) {   // réglage ancien non normalisé : on l'affiche à 100 %
+    const n2 = normalizeWeights(Object.fromEntries(subjKeys.map(x => [x, cfg.subjectWeights[x] * 100 / total])), subjKeys[0]);
+    subjKeys.forEach(x => { inp(x).value = n2[x]; });
+  }
+
   const save = async () => {
     const q = (id) => num(card.querySelector('#' + id).value);
     const patch = { subjectWeights: {} };
@@ -47,6 +80,10 @@ export async function renderCaracsSettings(root, forceOpen = false) {
       patch.subjectWeights[k] = v; swTotal += v;
     }
     if (swTotal <= 0) return bad('Au moins une matière doit avoir un poids supérieur à 0.');
+    if (Math.round(swTotal) !== 100) {   // sécurité : toujours enregistrer 100 %
+      const n = normalizeWeights(Object.fromEntries(Object.entries(patch.subjectWeights).map(([k, v]) => [k, v * 100 / swTotal])), Object.keys(SUBJECT_LABELS)[0]);
+      patch.subjectWeights = n;
+    }
     await saveCaracSettings(patch);
     await (await import('../features/seed.js')).loadAll();
     showToast({ type: 'xp', icon: 'check', title: 'Caractéristiques recalculées', text: 'Réglages enregistrés.' }, 3000);

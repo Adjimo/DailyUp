@@ -4,19 +4,19 @@
 //  - version différente de APP_VERSION : la page s'ouvre (si RELEASE_NOTES correspond), puis la version est mémorisée ;
 //  - même version : rien.
 // À CHAQUE MISE À JOUR : changer APP_VERSION (core/state.js) ET réécrire RELEASE_NOTES ci-dessous (items courts : 1 ligne chacun).
-import { APP_VERSION } from '../core/state.js';
+import { APP_VERSION, IS_ADMIN } from '../core/state.js';
 import { dbGet, dbPut } from '../core/db.js';
 import { prefsNow } from '../features/prefs.js';
 import { escapeHtml, el } from '../ui/helpers.js';
 import { iconHtml } from '../ui/icons.js';
 
 export const RELEASE_NOTES = {
-  version: '5.1',
+  version: '5.2',
   items: [
-    { icon: 'chart',    title: 'Accueil',  text: 'Nouvelle barre « Travail de la semaine ».' },
-    { icon: 'calendar', title: 'Planning', text: 'Correctif : « Travail personnel » devient « Temps libre ».' },
-    { icon: 'calendar', title: 'Planning', text: 'Correctif : le temps libre occupe maintenant toutes les plages disponibles.' },
-    { icon: 'check',    title: 'To-do',    text: 'Correctif : les cycles ne dépassent plus le poids autorisé par semaine.' },
+    { icon: 'run',      title: 'Sport',     text: 'Malus des sorties manquées plafonné à −20 %.' },
+    { icon: 'target',   title: 'Objectifs', text: 'Les parts par matière se renormalisent seules à 100 %.' },
+    { icon: 'calendar', title: 'Planning',  text: 'Durée d’un DS = plage horaire affichée.' },
+    { icon: 'chart',    title: 'Stats',     text: 'Régularité par mois sur tout l’historique, à faire glisser.' },
   ],
 };
 
@@ -53,6 +53,7 @@ export async function showWhatsNewIfDue() {
   const seen = (await dbGet('meta', 'lastSeenVersion'))?.value || '';
   if (seen === APP_VERSION) return;
   await dbPut('meta', { key: 'lastSeenVersion', value: APP_VERSION });   // mémorisé dès l'ouverture : jamais deux fois
+  if (!IS_ADMIN) return;                                                 // version utilisateur : jamais de page Nouveautés
   if (!prefsNow().onboarded) return;                                     // nouvelle installation : le tutoriel passe d'abord
   if (RELEASE_NOTES.version !== APP_VERSION) return;                     // pas de notes pour cette version
   await showWhatsNew();

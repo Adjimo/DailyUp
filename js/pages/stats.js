@@ -55,9 +55,9 @@ export function renderStats(root) {
     </div>
   `}));
 
-  // Heatmap calendaire — visualise la régularité sur 12 semaines
+  // Heatmap calendaire — régularité par mois, historique complet (glissable)
   page.appendChild(el('div', { class: 'chart-card mb-3' }, [
-    el('div', { class: 'chart-title', html: iconHtml('calendar') + ' Régularité · 12 dernières semaines' }),
+    el('div', { class: 'chart-title', html: iconHtml('calendar') + ' Régularité · par mois' }),
     el('div', { class: 'work-heatmap', id: 'work-heatmap' })
   ]));
 
@@ -246,89 +246,72 @@ export function renderVO2maxChart(acts) {
   });
 }
 
-// Heatmap style GitHub : 12 semaines × 7 jours, intensité selon heures travaillées.
+// Heatmap style GitHub, en blocs par mois, avec tout l'historique : on fait glisser vers la gauche pour remonter
+// dans le temps (démarre calé sur la semaine en cours). Au moins 12 semaines affichées. Intensité selon heures travaillées.
 export function renderWorkHeatmap(logs) {
   const root = document.getElementById('work-heatmap');
   if (!root) return;
   const today = new Date(); today.setHours(0,0,0,0);
-  // Trouve le lundi de la semaine actuelle, recule de 11 semaines → début de grille.
-  const day = today.getDay();
-  const diffToMonday = (day === 0 ? -6 : 1) - day;
-  const thisMonday = new Date(today); thisMonday.setDate(thisMonday.getDate() + diffToMonday);
-  const startMonday = new Date(thisMonday); startMonday.setDate(startMonday.getDate() - 11 * 7);
+  const mondayOf = (d) => { const m = new Date(d); m.setHours(0,0,0,0); m.setDate(m.getDate() + ((m.getDay() === 0 ? -6 : 1) - m.getDay())); return m; };
+  const thisMonday = mondayOf(today);
+  // Début : lundi de la plus ancienne saisie (au moins 12 semaines en arrière).
+  const firstLog = logs.filter(l => (l.totalMinutes || 0) > 0).map(l => l.date).sort()[0];
+  const min12 = new Date(thisMonday); min12.setDate(min12.getDate() - 11 * 7);
+  let startMonday = firstLog ? mondayOf(new Date(firstLog + 'T12:00:00')) : min12;
+  if (startMonday > min12) startMonday = min12;
+  const nWeeks = Math.round((thisMonday - startMonday) / (7 * 86400000)) + 1;
 
   // Échelle d'intensité : 0, <2h, 2-4h, 4-6h, ≥6h.
-  const bucket = (h) => {
-    if (h <= 0) return 0;
-    if (h < 2) return 1;
-    if (h < 4) return 2;
-    if (h < 6) return 3;
-    return 4;
-  };
+  const bucket = (h) => (h <= 0 ? 0 : h < 2 ? 1 : h < 4 ? 2 : h < 6 ? 3 : 4);
 
-  const cells = [];
-  const monthLabels = [];
-  let lastMonth = -1;
-  for (let w = 0; w < 12; w++) {
-    const colDays = [];
+  // Semaines → blocs par mois (mois du jeudi de la semaine).
+  const blocks = [];
+  for (let w = 0; w < nWeeks; w++) {
+    const col = [];
     for (let d = 0; d < 7; d++) {
-      const date = new Date(startMonday);
-      date.setDate(date.getDate() + w * 7 + d);
+      const date = new Date(startMonday); date.setDate(date.getDate() + w * 7 + d);
       const k = todayKey(date);
-      const log = logs.find(l => l.date === k);
-      const hours = (log?.totalMinutes || 0) / 60;
-      const isFuture = date > today;
-      colDays.push({ date, k, hours, level: bucket(hours), future: isFuture });
+      const hours = ((logs.find(l => l.date === k))?.totalMinutes || 0) / 60;
+      col.push({ date, k, hours, level: bucket(hours), future: date > today });
     }
-    cells.push(colDays);
-    // Label mois sur la première semaine où il change
-    const firstOfWeek = colDays[0].date;
-    const m = firstOfWeek.getMonth();
-    if (m !== lastMonth) {
-      monthLabels.push({ col: w, label: firstOfWeek.toLocaleDateString('fr-FR', { month: 'short' }) });
-      lastMonth = m;
-    } else {
-      monthLabels.push(null);
-    }
+    const thu = col[3].date;
+    const id = thu.getFullYear() * 12 + thu.getMonth();
+    let blk = blocks[blocks.length - 1];
+    if (!blk || blk.id !== id) { blk = { id, date: thu, cols: [] }; blocks.push(blk); }
+    blk.cols.push(col);
   }
 
   const dayLabels = ['L', '', 'M', '', 'V', '', 'D'];
-  let html = '<div class="heatmap-grid">';
-  // Ligne des labels de mois
-  html += '<div class="heatmap-months">';
-  html += '<div class="heatmap-corner"></div>';
-  for (const m of monthLabels) {
-    html += `<div class="heatmap-month">${m ? m.label : ''}</div>`;
-  }
-  html += '</div>';
-  // Lignes : une par jour de la semaine
-  for (let d = 0; d < 7; d++) {
-    html += '<div class="heatmap-row">';
-    html += `<div class="heatmap-daylabel">${dayLabels[d]}</div>`;
-    for (let w = 0; w < 12; w++) {
-      const cell = cells[w][d];
-      const cls = cell.future ? 'future' : `lvl-${cell.level}`;
-      const tip = cell.future
-        ? ''
-        : `${cell.date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} · ${cell.hours.toFixed(1)} h`;
-      // data-key permet de retrouver le workLog au clic.
-      const dataAttr = cell.future ? '' : `data-key="${cell.k}"`;
-      html += `<div class="heatmap-cell ${cls}" title="${tip}" ${dataAttr}></div>`;
+  const monthLabel = (blk) => {
+    const m = blk.date.toLocaleDateString('fr-FR', { month: 'long' });
+    return m.charAt(0).toUpperCase() + m.slice(1) + (blk.date.getFullYear() !== today.getFullYear() ? ' ' + blk.date.getFullYear() : '');
+  };
+  let html = '<div class="hm2"><div class="hm2-days"><div class="hm2-month-spacer"></div>';
+  for (let d = 0; d < 7; d++) html += `<div class="hm2-daylabel">${dayLabels[d]}</div>`;
+  html += '</div><div class="hm2-scroll" id="hm2-scroll"><div class="hm2-track">';
+  for (const blk of blocks) {
+    html += `<div class="hm2-block"><div class="hm2-month">${monthLabel(blk)}</div><div class="hm2-cols">`;
+    for (const col of blk.cols) {
+      html += '<div class="hm2-col">';
+      for (const cell of col) {
+        const cls = cell.future ? 'future' : `lvl-${cell.level}`;
+        const tip = cell.future ? '' : `${cell.date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} · ${cell.hours.toFixed(1)} h`;
+        html += `<div class="heatmap-cell ${cls}" title="${tip}" ${cell.future ? '' : `data-key="${cell.k}"`}></div>`;
+      }
+      html += '</div>';
     }
-    html += '</div>';
+    html += '</div></div>';
   }
-  html += '</div>';
-  // Légende
+  html += '</div></div></div>';
   html += `<div class="heatmap-legend">
+    <span class="hm2-hint">${nWeeks > 12 ? '← glisse pour voir plus loin' : ''}</span>
     <span>moins</span>
-    <div class="heatmap-cell lvl-0"></div>
-    <div class="heatmap-cell lvl-1"></div>
-    <div class="heatmap-cell lvl-2"></div>
-    <div class="heatmap-cell lvl-3"></div>
-    <div class="heatmap-cell lvl-4"></div>
+    <div class="heatmap-cell lvl-0"></div><div class="heatmap-cell lvl-1"></div><div class="heatmap-cell lvl-2"></div><div class="heatmap-cell lvl-3"></div><div class="heatmap-cell lvl-4"></div>
     <span>plus</span>
   </div>`;
   root.innerHTML = html;
+  const sc = root.querySelector('#hm2-scroll');
+  if (sc) sc.scrollLeft = sc.scrollWidth;   // on arrive sur le mois en cours
 
   // Click sur une cellule : popover détaillé (heures + matières).
   root.querySelectorAll('.heatmap-cell[data-key]').forEach(cellEl => {

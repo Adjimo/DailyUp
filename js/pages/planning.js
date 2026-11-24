@@ -39,7 +39,8 @@ function timeCol(start, end) {
 function eventCard(ev, onTap, day) {
   const meta = [ev.teacher, ev.room ? `salle ${ev.room}` : null].filter(Boolean).join(' · ');
   const min = spanMin(ev.start, ev.end);
-  const dur = ev.type === 'ds' ? (ev.hours ? `${ev.hours} h` : 'durée à préciser') : null;
+  // Durée du DS = celle de la plage horaire affichée (suit les modifications de début / fin).
+  const dur = ev.type === 'ds' ? ((ev.approx && ev.end === '17:00') || !ev.end ? 'durée à préciser' : formatDuration(min)) : null;
   const isLive = live(day, ev.start, ev.end);
   return el('div', { class: `pl-card pl-${ev.type} pl-tap${isLive ? ' pl-now' : ''}`, style: `min-height:${hCard(min)}px`, onclick: () => onTap(ev) }, [
     timeCol(ev.start, ev.end),
