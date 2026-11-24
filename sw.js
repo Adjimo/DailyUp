@@ -4,7 +4,7 @@
 // et se met à jour automatiquement dès qu'une nouvelle version est déployée.
 // ============================================================================
 
-// v5.1 : page « Nouveautés » au premier lancement après une mise à jour
+// v5.1 (utilisateur, contenu 5.2 sans page Nouveautés) : page « Nouveautés » au premier lancement après une mise à jour
 const VERSION = 'dailyup-v5-1';
 // Cache des bibliothèques externes (MapLibre, Chart.js, polices) : jamais supprimé lors d'une mise à jour
 // de l'app, pour que la carte et les graphiques marchent hors ligne dès la 1re ouverture en ligne.

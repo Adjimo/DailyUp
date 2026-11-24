@@ -435,3 +435,10 @@ Les données vivent uniquement dans le navigateur. Profil → Sauvegarde → Exp
 ### v5.0 — Planning : catégorie « Trajet », fin de la mention « modifié »
 - Catégorie **Trajet** (`PLAN_CATS`, clé `trajet`, intitulé proposé « Retour à la maison ») : se comporte comme la pause repas (`isPause` dans `buildWeek`) : bande fine en fond, couleur propre (modifiable dans les couleurs du planning), **retirée du temps libre de travail**, donc du travail attendu de la semaine.
 - Plus de pastille « modifié » sur les créneaux ajoutés ou modifiés ; le bouton « Rétablir l'original » reste dans la fenêtre d'édition.
+
+### v5.2
+- **Sport** : le malus de la quête « Sorties course » est plafonné à 20 % (`SPORT_MALUS_CAP`, `malusFactorFromRatio(ratio, questId)` dans `features/penalties.js`) ; le travail garde ses paliers (jusqu'à 80 %).
+- **Options › Objectifs** : les parts par matière se renormalisent automatiquement à 100 % à chaque modification (`normalizeWeights`, `pages/caracs-settings.js`) ; l'enregistrement normalise aussi par sécurité.
+- **Planning** : la pastille de durée d'un DS reprend la plage horaire affichée (suit les modifications de début / fin) ; « durée à préciser » seulement tant que la plage par défaut n'est pas modifiée.
+- **Stats** : « Régularité » en blocs par mois sur tout l'historique (depuis la première saisie, au moins 12 semaines), à faire glisser horizontalement ; arrive calée sur le mois en cours (`renderWorkHeatmap`, classes `.hm2-*`).
+- SW `dailyup-v5-2`, `APP_VERSION` 5.2 (admin). Version utilisateur : reste étiquetée 5.1 (`dailyup-v5-1`) et n'affiche jamais la page Nouveautés (`IS_ADMIN` requis).

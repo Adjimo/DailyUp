@@ -2072,3 +2072,18 @@ input[type="checkbox"]:checked { background-color: var(--accent); border-color: 
 .td-check.on { background-color: var(--accent); border-color: var(--accent); background-image: var(--ck); }
 .block.sleep.pop .td-check { animation: td-pop 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
 @media (prefers-reduced-motion: reduce) { .block.sleep.pop .td-check { animation: none; } }
+
+/* v5.2 — Heatmap par mois, glissable */
+.hm2 { display: flex; gap: 6px; align-items: flex-start; }
+.hm2-days { display: flex; flex-direction: column; gap: 3px; flex: none; }
+.hm2-month-spacer { height: 18px; }
+.hm2-daylabel { height: 19px; width: 12px; font-size: 0.62rem; color: var(--text-mute); text-align: center; line-height: 19px; }
+.hm2-scroll { flex: 1; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; scroll-snap-type: x proximity; }
+.hm2-scroll::-webkit-scrollbar { display: none; }
+.hm2-track { display: flex; gap: 12px; width: max-content; padding-right: 2px; }
+.hm2-block { scroll-snap-align: end; }
+.hm2-month { height: 18px; font-size: 0.68rem; color: var(--text-dim); letter-spacing: 0.04em; white-space: nowrap; }
+.hm2-cols { display: flex; gap: 3px; }
+.hm2-col { display: flex; flex-direction: column; gap: 3px; }
+.hm2-col .heatmap-cell { width: 19px; height: 19px; aspect-ratio: auto; }
+.hm2-hint { margin-right: auto; }
