@@ -2163,3 +2163,7 @@ summary.cs-fold-head:active { transform: scale(.99); background-color: rgba(200,
 .hm2-total.hm2-sel { background: var(--accent); color: var(--on-accent); outline: none; }
 .hm2-caption { margin-top: 10px; font-size: .74rem; color: var(--text-mute); text-align: center; }
 .hm2-cap-m, .hm2-cap-s { color: var(--gold); font-weight: 600; }
+
+/* Régularité v4 : semaines entières ; jours du mois voisin pâles */
+.hm2-col .heatmap-cell.hm2-other { opacity: .38; }
+.hm2-col .heatmap-cell.hm2-other.hm2-sel { opacity: 1; }
