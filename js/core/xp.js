@@ -1,7 +1,6 @@
 // XP, niveaux, rangs et compétences
 import { dbPut } from './db.js';
 import { State } from './state.js';
-import { COLORS } from '../ui/icons.js';
 
 // ── Niveaux façon Donjons & Dragons (5e) : niveau 1 → 20, courbe très progressive.
 // Seuils D&D 5e (XP cumulés pour atteindre chaque niveau), remis à l'échelle pour que le
@@ -29,17 +28,6 @@ export function deriveSkillLevel(xp) {
   while (remaining >= xpForLevelUp(level) && level <= 200) { remaining -= xpForLevelUp(level); level++; }
   return { level };
 }
-
-export const SKILL_META = {
-  endurance:  { label: 'Endurance',  icon: 'run', color: COLORS.run, desc: 'Volume kilométrique.' },
-  allure:     { label: 'Allure',     icon: 'bolt', color: COLORS.bolt, desc: 'Performance pure.' },
-  maths:      { label: 'Maths',      icon: 'sigma', color: COLORS.sigma, desc: 'DM, exos, démos.' },
-  physique:   { label: 'Physique',   icon: 'atom', color: COLORS.atom, desc: 'Mécanique, thermo, ondes.' },
-  si:         { label: 'SI / Info',  icon: 'chip', color: COLORS.chip, desc: 'Sciences ingé / info.' },
-  langues:    { label: 'Anglais',    icon: 'globe', color: COLORS.globe, desc: 'Anglais.' },
-  lettres:    { label: 'Lettres',    icon: 'pen', color: COLORS.pen, desc: 'Français, philo.' },
-  discipline: { label: 'Discipline', icon: 'lotus', color: COLORS.lotus, desc: 'Régularité, focus.' }
-};
 
 export const DEFAULT_PROFILE = {
   id: 'me',
