@@ -48,6 +48,7 @@ const ICONS = {
   chevd: `<path d="M5 9l7 7 7-7"/>`,
   up: `<path ${f} d="M12 5l7 11H5z"/><path d="M12 5l7 11H5z"/>`,
   down: `<path ${f} d="M12 19 5 8h14z"/><path d="M12 19 5 8h14z"/>`,
+  palette: `<path ${f} d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H17a4 4 0 0 0 4-4c0-4.4-4-8.4-9-8.4z"/><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H17a4 4 0 0 0 4-4c0-4.4-4-8.4-9-8.4z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="7.5" r="1"/>`,
   wind: `<path d="M3 8h10a2.5 2.5 0 1 0-2.5-2.5M3 12h15a2.5 2.5 0 1 1-2.5 2.5M3 16h8a2.2 2.2 0 1 1-2.2 2.2"/>`,
 };
 
@@ -58,7 +59,7 @@ export const COLORS = {
   sigma: '#E39A3B', atom: '#D2694B', mountain: '#B98A5C', peak: '#C4A27A', sunrise: '#F09A5B', scale: '#BBA677', cycle: '#E8B25E', gear: '#C9A27A',
   bandage: '#E5A08A', pencil: '#C9B27C', trophy: '#F0B93B', sparkles: '#F6D98A', party: '#E67A6B', building: '#CDB68A',
   pickaxe: '#C8794A', boot: '#A87A4E', lotus: '#E0A39A', stethoscope: '#D07A6A', thermo: '#E0735E', bell: '#F0C46A',
-  disk: '#D5C09A', target: '#DE6F4A', star: '#F2C14E', check: '#E8B86A', wind: '#C9B79A',
+  disk: '#D5C09A', target: '#DE6F4A', star: '#F2C14E', check: '#E8B86A', wind: '#C9B79A', palette: '#E0A06A',
   // Pictos d'interface : héritent la couleur du texte
   close: 'currentColor', tick: 'currentColor', chevr: 'currentColor', chevl: 'currentColor', chevu: 'currentColor', chevd: 'currentColor',
   up: '#E8A13A', down: '#c4584a',
