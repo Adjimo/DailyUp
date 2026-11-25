@@ -349,7 +349,7 @@ export function renderWorkHeatmap(logs) {
     html += '</div></div>';
   });
   html += '</div></div></div>';
-  html += '<div class="hm2-caption"><span class="hm2-cap-m">Mois</span> et <span class="hm2-cap-s">Σ semaine</span> : touche-les pour le détail · cases pâles = mois voisin</div><div class="hm2-detail" id="hm2-detail"><div class="hm2-hint-d">Touche un <b>mois</b> pour son total, un <b>Σ</b> pour le total d’une semaine, ou un jour.</div></div>';
+  html += '<div class="hm2-detail" id="hm2-detail"><div class="hm2-hint-d">Touche un <b>mois</b> pour son total, un <b>Σ</b> pour le total d’une semaine, ou un jour.</div></div>';
   html += `<div class="heatmap-legend">
     <span class="hm2-hint">${nWeeks > 6 ? '← glisse pour remonter' : ''}</span>
     <span>moins</span>
