@@ -2147,3 +2147,19 @@ summary.cs-fold-head:active { transform: scale(.99); background-color: rgba(200,
 .hm2-d-sub { font-size: .72rem; color: var(--text-mute); }
 .hm2-d-head .popover-total { margin: 0; white-space: nowrap; }
 .hm2-detail .popover-subjects { margin-top: 8px; }
+
+/* Régularité v3 : cases moyennes, mois et totaux de semaine bien visibles */
+.hm2-days, .hm2-cols, .hm2-col { gap: 4px; }
+.hm2-month-spacer { height: 38px; }
+.hm2-daylabel { height: 26px; line-height: 26px; }
+.hm2-col .heatmap-cell { width: 26px; height: 26px; border-radius: 7px; }
+.hm2-track { gap: 14px; }
+.hm2-month { display: inline-flex; align-items: center; gap: 8px; height: 30px; margin-bottom: 8px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--accent); background: rgba(200,129,74,.14); color: var(--gold); font-size: .74rem; font-weight: 600; text-decoration: none !important; }
+.hm2-month b { font-family: var(--font-mono); font-weight: 700; color: var(--text); }
+.hm2-month.hm2-sel { background: var(--accent); color: var(--on-accent); outline: none; }
+.hm2-month.hm2-sel b { color: var(--on-accent); }
+.hm2-sigma { height: 28px; line-height: 28px; font-size: .9rem; }
+.hm2-total { width: 26px; height: 28px; border-radius: 7px; border: 1px solid var(--accent); background: rgba(200,129,74,.2); color: var(--gold); font-size: .7rem; font-weight: 700; }
+.hm2-total.hm2-sel { background: var(--accent); color: var(--on-accent); outline: none; }
+.hm2-caption { margin-top: 10px; font-size: .74rem; color: var(--text-mute); text-align: center; }
+.hm2-cap-m, .hm2-cap-s { color: var(--gold); font-weight: 600; }
