@@ -280,31 +280,34 @@ export function renderWorkHeatmap(logs) {
   const startK = statsStartKey(logs);
   const startDate = new Date(startK + 'T00:00:00');
   const mondayOf = (d) => { const m = new Date(d); m.setHours(0, 0, 0, 0); m.setDate(m.getDate() + ((m.getDay() === 0 ? -6 : 1) - m.getDay())); return m; };
-  const startMonday = mondayOf(startDate);
-  const thisMonday = mondayOf(today);
-  const nWeeks = Math.round((thisMonday - startMonday) / (7 * 86400000)) + 1;
   const byDate = new Map(logs.map(l => [l.date, l]));
   const bucket = (h) => (h <= 0 ? 0 : h < 2 ? 1 : h < 4 ? 2 : h < 6 ? 3 : 4);
 
-  // Semaines → blocs par mois (mois du jeudi de la semaine).
+  // Un bloc par mois : il ne contient QUE les jours de ce mois. Les jours d'une autre semaine-mois restent des cases vides,
+  // pour que les 7 lignes (L → D) soient toujours alignées. Une semaine à cheval sur deux mois apparaît dans chacun.
   const blocks = [];
-  for (let w = 0; w < nWeeks; w++) {
-    const days = [];
-    let weekMin = 0;
-    for (let d = 0; d < 7; d++) {
-      const date = new Date(startMonday); date.setDate(date.getDate() + w * 7 + d);
-      const k = todayKey(date);
-      const mins = byDate.get(k)?.totalMinutes || 0;
-      const hidden = k < startK || k > todayK;   // avant l'arrivée / dans le futur : pas de case
-      if (!hidden) weekMin += mins;
-      days.push({ k, date, mins, level: bucket(mins / 60), hidden });
+  let nCols = 0;
+  for (let y = startDate.getFullYear(), m = startDate.getMonth(); y * 12 + m <= today.getFullYear() * 12 + today.getMonth(); m++) {
+    if (m > 11) { m = 0; y++; }
+    const last = new Date(y, m + 1, 0);
+    const cols = [];
+    for (const w = mondayOf(new Date(y, m, 1)); w <= last; w.setDate(w.getDate() + 7)) {
+      const days = [];
+      let weekMin = 0;
+      for (let d = 0; d < 7; d++) {
+        const date = new Date(w); date.setDate(date.getDate() + d);
+        const k = todayKey(date);
+        const mins = byDate.get(k)?.totalMinutes || 0;
+        const hidden = date.getMonth() !== m || k < startK || k > todayK;
+        if (!hidden) weekMin += mins;
+        days.push({ k, date, mins, level: bucket(mins / 60), hidden });
+      }
+      if (days.every(c => c.hidden)) continue;
+      cols.push({ days, weekMin });
     }
-    const thu = days[3].date;
-    const id = thu.getFullYear() * 12 + thu.getMonth();
-    let blk = blocks[blocks.length - 1];
-    if (!blk || blk.id !== id) { blk = { id, date: thu, cols: [] }; blocks.push(blk); }
-    blk.cols.push({ days, weekMin, wk: todayKey(days[0].date) });
+    if (cols.length) { blocks.push({ date: new Date(y, m, 15), cols }); nCols += cols.length; }
   }
+  const nWeeks = nCols;
 
   // Cumuls (minutes totales + par matière) sur une liste de dates.
   const sumKeys = (keys) => {
@@ -328,8 +331,9 @@ export function renderWorkHeatmap(logs) {
   const detailOf = {};   // id → { title, sum }
   blocks.forEach((blk, bi) => {
     const mKeys = blk.cols.flatMap(c => validKeys(c.days));
-    detailOf[`m${bi}`] = { title: monthName(blk), sub: 'Total du mois', sum: sumKeys(mKeys) };
-    html += `<div class="hm2-block"><button type="button" class="hm2-month" data-d="m${bi}">${monthName(blk)}</button><div class="hm2-cols">`;
+    const mSum = sumKeys(mKeys);
+    detailOf[`m${bi}`] = { title: monthName(blk), sub: 'Total du mois', sum: mSum };
+    html += `<div class="hm2-block"><button type="button" class="hm2-month" data-d="m${bi}" aria-label="Total de ${monthName(blk)}">${monthName(blk)}<b>${mSum.total > 0 ? Math.round(mSum.total / 60) + ' h' : '–'}</b></button><div class="hm2-cols">`;
     blk.cols.forEach((col, ci) => {
       html += '<div class="hm2-col">';
       col.days.forEach(c => {
@@ -339,14 +343,14 @@ export function renderWorkHeatmap(logs) {
       });
       const id = `w${bi}-${ci}`;
       const first = col.days.find(d => !d.hidden), last = [...col.days].reverse().find(d => !d.hidden);
-      detailOf[id] = { title: first ? `Semaine du ${longDate(first.k)} au ${longDate(last.k)}` : 'Semaine', sub: 'Total de la semaine', sum: sumKeys(validKeys(col.days)) };
+      detailOf[id] = { title: first ? `Semaine du ${longDate(first.k)} au ${longDate(last.k)}` : 'Semaine', sub: col.days.some(d => d.hidden && d.k >= startK && d.k <= todayK) ? 'Total de la semaine (partie de ce mois)' : 'Total de la semaine', sum: sumKeys(validKeys(col.days)) };
       html += `<button type="button" class="hm2-total" data-d="${id}" aria-label="Total de la semaine">${col.weekMin > 0 ? Math.round(col.weekMin / 60) + 'h' : '–'}</button>`;
       html += '</div>';
     });
     html += '</div></div>';
   });
   html += '</div></div></div>';
-  html += '<div class="hm2-detail" id="hm2-detail"><div class="hm2-hint-d">Touche un jour, un total « Σ » ou un mois pour voir le détail.</div></div>';
+  html += '<div class="hm2-caption"><span class="hm2-cap-m">Mois</span> et <span class="hm2-cap-s">Σ semaine</span> : touche-les pour le détail</div><div class="hm2-detail" id="hm2-detail"><div class="hm2-hint-d">Touche un <b>mois</b> pour son total, un <b>Σ</b> pour le total d’une semaine, ou un jour.</div></div>';
   html += `<div class="heatmap-legend">
     <span class="hm2-hint">${nWeeks > 6 ? '← glisse pour remonter' : ''}</span>
     <span>moins</span>
