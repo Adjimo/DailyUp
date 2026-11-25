@@ -29,30 +29,30 @@ export async function prefetchSport() {
 export function renderSport(root) {
   const page = el('div', { class: 'page' });
   const title = el('div', { class: 'page-title' }, [el('h1', {}, 'Sport')]);
-  const importLabel = el('label', {
-    class: 'btn-gpx',
-    title: 'Importer un fichier GPX'
-  });
-  importLabel.innerHTML = `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-      <polyline points="17 8 12 3 7 8"/>
-      <line x1="12" y1="3" x2="12" y2="15"/>
-    </svg>
-    <span>GPX</span>
-  `;
+  // Un seul bouton « + Sortie » : un petit menu propose l'import d'un GPX ou la saisie manuelle.
   const fileInput = el('input', { type: 'file', accept: '.gpx', hidden: 'true' });
   fileInput.addEventListener('change', onGpxFile);
-  importLabel.appendChild(fileInput);
-  const addBtn = el('button', { type: 'button', class: 'btn-gpx', title: 'Ajouter une sortie sans GPX', onclick: () => openManualActivity() });
+  const menu = el('div', { class: 'sp-add-menu hidden', role: 'menu' }, [
+    el('button', { type: 'button', class: 'sp-add-item', role: 'menuitem', onclick: () => { closeMenu(); fileInput.click(); }, html: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Importer un GPX</span>' }),
+    el('button', { type: 'button', class: 'sp-add-item', role: 'menuitem', onclick: () => { closeMenu(); openManualActivity(); }, html: iconHtml('pencil') + '<span>Saisie manuelle</span>' })
+  ]);
+  const addBtn = el('button', { type: 'button', class: 'btn-gpx', 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: 'Ajouter une sortie' });
   addBtn.innerHTML = `<span style="font-size:1.15rem;font-weight:700;line-height:1;">+</span><span>Sortie</span>`;
-  title.append(addBtn, importLabel);
+  const onDoc = (e) => { if (!addWrap.contains(e.target)) closeMenu(); };
+  function closeMenu() { menu.classList.add('hidden'); addBtn.setAttribute('aria-expanded', 'false'); document.removeEventListener('pointerdown', onDoc, true); }
+  addBtn.addEventListener('click', () => {
+    if (!menu.classList.contains('hidden')) return closeMenu();
+    menu.classList.remove('hidden'); addBtn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('pointerdown', onDoc, true);
+  });
+  const addWrap = el('div', { class: 'sp-add-wrap' }, [addBtn, menu, fileInput]);
+  title.append(addWrap);
   page.appendChild(title);
 
   // Objectif de sorties de la semaine (− / +) et justification : réglés ici, côté sport.
   // Même carte que « Aujourd'hui » (.block : icône, titre, sous-titre) avec le compteur − / + à droite.
   const runsBox = el('div', { class: 'block sp-runs' });
-  runsBox.innerHTML = `<div class="block-icon">${iconHtml('run')}</div><div class="block-body"><div class="block-title">Sorties de la semaine</div><div class="dim text-xs">Objectif hebdomadaire</div></div>`;
+  runsBox.innerHTML = `<div class="block-icon">${iconHtml('run')}</div><div class="block-body"><div class="block-title">Sorties de la semaine</div><div class="dim text-xs">Objectif · sorties par semaine</div></div>`;
   page.appendChild(runsBox);
   const runsQ = State.quests.find(q => q.id === 'wq-runs');
   if (!runsQ) runsBox.remove();
@@ -63,11 +63,8 @@ export function renderSport(root) {
     const empty = el('div', { class: 'card center', style: 'padding:40px; text-align:center;', html: `
       <div class="text-2xl mb-2">${iconHtml('peak')}</div>
       <h3 class="mb-2">Aucune sortie</h3>
-      <div class="dim text-sm mb-4">Importe un GPX ou ajoute ta sortie.</div>
+      <div class="dim text-sm">Utilise « + Sortie » en haut pour importer un GPX ou saisir ta sortie.</div>
     `});
-    const emptyAdd = el('button', { type: 'button', class: 'btn-gpx', onclick: () => openManualActivity() });
-    emptyAdd.innerHTML = `<span style="font-size:1.15rem;font-weight:700;line-height:1;">+</span><span>Ajouter une sortie</span>`;
-    empty.appendChild(emptyAdd);
     page.appendChild(empty);
     root.appendChild(page);
     return;
@@ -270,7 +267,6 @@ export function buildMapStyle(c = mapPalette()) {
     ]
   };
 }
-export const ORION_MAP_STYLE = buildMapStyle();
 
 // Rend une carte Orion-stylée dans un conteneur DOM. Renvoie l'instance MapLibre.
 export function renderMapInto(mapEl, activity) {

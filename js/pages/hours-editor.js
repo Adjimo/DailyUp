@@ -5,7 +5,7 @@ import { el } from '../ui/helpers.js';
 import { DAY_LABELS } from '../features/planning.js';
 
 export const fmtMin = (m) => { const x = ((m % 1440) + 1440) % 1440; return `${String(Math.floor(x / 60)).padStart(2, '0')}h${String(x % 60).padStart(2, '0')}`; };
-const SHORT = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const SHORT = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'];
 
 function slider(label, min, max, value, onInput) {
   const out = el('b', { class: 'ob-val' }, fmtMin(value));

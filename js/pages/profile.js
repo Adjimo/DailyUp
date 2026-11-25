@@ -1,7 +1,7 @@
 // Page Profil
 import { formatDate } from '../core/dates.js';
 import { dbAll } from '../core/db.js';
-import { APP_VERSION, State } from '../core/state.js';
+import { State } from '../core/state.js';
 import { storageStatus, daysSince } from '../features/storage.js';
 import { downloadAutoBackup, exportData, onImportFile, renderRemindersCard } from '../features/backup.js';
 import { el, onAction } from '../ui/helpers.js';

@@ -1,5 +1,7 @@
 // Page Statistiques
-import { todayKey, weekKey } from '../core/dates.js';
+import { todayKey, weekKey, weekDateKeys } from '../core/dates.js';
+import { JOIN_DATE } from '../core/join.js';
+import { dayInfo, weekMode } from '../core/calendar.js';
 
 import { State } from '../core/state.js';
 import { sportOn } from '../features/prefs.js';
@@ -15,6 +17,22 @@ import { el } from '../ui/helpers.js';
 import { iconHtml, subjColor } from '../ui/icons.js';
 import { render } from '../ui/router.js';
 
+
+// Début de la période affichée dans les stats : arrivée dans l'app (ou première saisie si plus ancienne), jamais avant le 15 août.
+export const STATS_FLOOR = '2026-08-15';
+export function statsStartKey(logs) {
+  const first = logs.filter(l => (l.totalMinutes || 0) > 0).map(l => l.date).sort()[0];
+  let start = JOIN_DATE || STATS_FLOOR;
+  if (first && first < start) start = first;
+  return start < STATS_FLOOR ? STATS_FLOOR : start;
+}
+const longDate = (k) => new Date(k + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+// Semaine « de cours » : lundi → vendredi sans vacances ni jour férié, hors révisions / concours / allégé.
+function isCourseWeek(wk) {
+  const days = weekDateKeys(wk).slice(0, 5);
+  if (weekMode(days[0]) !== 'normal') return false;
+  return days.every(k => { const i = dayInfo(k); return !i.vacation && !i.holiday; });
+}
 
 export function renderStats(root) {
   const page = el('div', { class: 'page' });
@@ -33,6 +51,7 @@ export function renderStats(root) {
     workByWeek[wk] = (workByWeek[wk] || 0) + (l.totalMinutes || 0);
   }
   const bestWeekMin = Math.max(0, ...Object.values(workByWeek));
+  const bestCourseWeekMin = Math.max(0, ...Object.entries(workByWeek).filter(([wk]) => isCourseWeek(wk)).map(([, v]) => v));
   const weekValues = Object.values(workByWeek);
   const avgWeekMin = weekValues.length > 0
     ? weekValues.reduce((s, v) => s + v, 0) / weekValues.length
@@ -63,14 +82,15 @@ export function renderStats(root) {
 
   // Graph: répartition matières (30 derniers jours)
   page.appendChild(el('div', { class: 'chart-card mb-3' }, [
-    el('div', { class: 'chart-title', html: iconHtml('target') + ' Répartition des matières · 30 derniers jours' }),
+    el('div', { class: 'chart-title', html: iconHtml('target') + ' Répartition des matières · depuis le ' + longDate(statsStartKey(logs)) }),
     el('div', { class: 'chart-wrap chart-wrap-donut' }, [el('canvas', { id: 'chart-work-subjects' })])
   ]));
 
-  page.appendChild(el('h3', { class: 'mb-2', html: iconHtml('trophy') + ' Records de travail' }));
+  page.appendChild(el('h3', { class: 'sub-h mb-2', html: iconHtml('trophy') + ' Records de travail' }));
   page.appendChild(el('div', { class: 'card mb-5', html: `
     <div class="rec-row"><div class="rec-left"><span class="rec-icon">${iconHtml('calendar')}</span><span class="rec-label">Plus grosse journée</span></div><div class="rec-value">${bestDayMin > 0 ? formatMinutes(bestDayMin) : '—'}</div></div>
-    <div class="rec-row"><div class="rec-left"><span class="rec-icon">${iconHtml('calendar')}</span><span class="rec-label">Plus grosse semaine</span></div><div class="rec-value">${bestWeekMin > 0 ? (bestWeekMin/60).toFixed(1) + 'h' : '—'}</div></div>
+    <div class="rec-row"><div class="rec-left"><span class="rec-icon">${iconHtml('calendar')}</span><span class="rec-label">Plus grosse semaine (toutes)</span></div><div class="rec-value">${bestWeekMin > 0 ? (bestWeekMin/60).toFixed(1) + 'h' : '—'}</div></div>
+    <div class="rec-row"><div class="rec-left"><span class="rec-icon">${iconHtml('books')}</span><span class="rec-label">Plus grosse semaine de cours</span></div><div class="rec-value">${bestCourseWeekMin > 0 ? (bestCourseWeekMin/60).toFixed(1) + 'h' : '—'}</div></div>
   `}));
 
   if (sportOn()) {   // sans sport : ni statistiques ni records sportifs
@@ -98,7 +118,7 @@ export function renderStats(root) {
     const m = Math.floor(s / 60), sec = Math.round(s % 60);
     return `${m}:${String(sec).padStart(2, '0')}`;
   };
-  page.appendChild(el('h3', { class: 'mb-2 mt-4', html: iconHtml('trophy') + ' Records glissants' }));
+  page.appendChild(el('h3', { class: 'sub-h mt-4 mb-2', html: iconHtml('trophy') + ' Records glissants' }));
   page.appendChild(el('div', { class: 'card mb-3', html: `
     <div class="rolling-table">
       <div class="rolling-header"><div></div><div>Absolu</div><div>90 j</div><div>30 j</div></div>
@@ -110,7 +130,7 @@ export function renderStats(root) {
   `}));
 
   // ── Records personnels (existant, fin de page) ─────────────────────────
-  page.appendChild(el('h3', { class: 'mb-2 mt-4', html: iconHtml('trophy') + ' Records sportifs' }));
+  page.appendChild(el('h3', { class: 'sub-h mt-4 mb-2', html: iconHtml('trophy') + ' Records sportifs' }));
   let recsHtml = '';
   for (const t of RECORD_TYPES) {
     const r = State.records[t.id];
@@ -186,7 +206,10 @@ export function renderStatsCharts(logs, acts) {
 
   // Travail : heatmap calendaire + donut matières
   renderWorkHeatmap(logs);
-  if (!window.Chart) return;
+  if (!window.Chart) {   // bibliothèque de graphes non chargée (premier lancement hors ligne) : message au lieu d'un cadre vide
+    document.querySelectorAll('.chart-wrap').forEach(w => { w.innerHTML = '<div class="chart-empty">Graphique indisponible hors connexion.<br>Il s’affichera dès que l’app aura pu le charger.</div>'; });
+    return;
+  }
   renderSubjectsDonut(logs);
 
   // Sport : courbe VO2max
@@ -246,65 +269,86 @@ export function renderVO2maxChart(acts) {
   });
 }
 
-// Heatmap style GitHub, en blocs par mois, avec tout l'historique : on fait glisser vers la gauche pour remonter
-// dans le temps (démarre calé sur la semaine en cours). Au moins 12 semaines affichées. Intensité selon heures travaillées.
+// Heatmap en blocs par mois, glissable, depuis l'arrivée dans l'app (au plus tôt le 15 août) : rien avant cette date.
+// Grosses cases pour le doigt ; une ligne « total » par semaine ; le détail (jour / semaine / mois, avec les matières)
+// s'affiche dans un panneau fixe SOUS la grille, qui ne cache jamais les cases.
 export function renderWorkHeatmap(logs) {
   const root = document.getElementById('work-heatmap');
   if (!root) return;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const mondayOf = (d) => { const m = new Date(d); m.setHours(0,0,0,0); m.setDate(m.getDate() + ((m.getDay() === 0 ? -6 : 1) - m.getDay())); return m; };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayK = todayKey(today);
+  const startK = statsStartKey(logs);
+  const startDate = new Date(startK + 'T00:00:00');
+  const mondayOf = (d) => { const m = new Date(d); m.setHours(0, 0, 0, 0); m.setDate(m.getDate() + ((m.getDay() === 0 ? -6 : 1) - m.getDay())); return m; };
+  const startMonday = mondayOf(startDate);
   const thisMonday = mondayOf(today);
-  // Début : lundi de la plus ancienne saisie (au moins 12 semaines en arrière).
-  const firstLog = logs.filter(l => (l.totalMinutes || 0) > 0).map(l => l.date).sort()[0];
-  const min12 = new Date(thisMonday); min12.setDate(min12.getDate() - 11 * 7);
-  let startMonday = firstLog ? mondayOf(new Date(firstLog + 'T12:00:00')) : min12;
-  if (startMonday > min12) startMonday = min12;
   const nWeeks = Math.round((thisMonday - startMonday) / (7 * 86400000)) + 1;
-
-  // Échelle d'intensité : 0, <2h, 2-4h, 4-6h, ≥6h.
+  const byDate = new Map(logs.map(l => [l.date, l]));
   const bucket = (h) => (h <= 0 ? 0 : h < 2 ? 1 : h < 4 ? 2 : h < 6 ? 3 : 4);
 
   // Semaines → blocs par mois (mois du jeudi de la semaine).
   const blocks = [];
   for (let w = 0; w < nWeeks; w++) {
-    const col = [];
+    const days = [];
+    let weekMin = 0;
     for (let d = 0; d < 7; d++) {
       const date = new Date(startMonday); date.setDate(date.getDate() + w * 7 + d);
       const k = todayKey(date);
-      const hours = ((logs.find(l => l.date === k))?.totalMinutes || 0) / 60;
-      col.push({ date, k, hours, level: bucket(hours), future: date > today });
+      const mins = byDate.get(k)?.totalMinutes || 0;
+      const hidden = k < startK || k > todayK;   // avant l'arrivée / dans le futur : pas de case
+      if (!hidden) weekMin += mins;
+      days.push({ k, date, mins, level: bucket(mins / 60), hidden });
     }
-    const thu = col[3].date;
+    const thu = days[3].date;
     const id = thu.getFullYear() * 12 + thu.getMonth();
     let blk = blocks[blocks.length - 1];
     if (!blk || blk.id !== id) { blk = { id, date: thu, cols: [] }; blocks.push(blk); }
-    blk.cols.push(col);
+    blk.cols.push({ days, weekMin, wk: todayKey(days[0].date) });
   }
 
-  const dayLabels = ['L', '', 'M', '', 'V', '', 'D'];
-  const monthLabel = (blk) => {
-    const m = blk.date.toLocaleDateString('fr-FR', { month: 'long' });
-    return m.charAt(0).toUpperCase() + m.slice(1) + (blk.date.getFullYear() !== today.getFullYear() ? ' ' + blk.date.getFullYear() : '');
-  };
-  let html = '<div class="hm2"><div class="hm2-days"><div class="hm2-month-spacer"></div>';
-  for (let d = 0; d < 7; d++) html += `<div class="hm2-daylabel">${dayLabels[d]}</div>`;
-  html += '</div><div class="hm2-scroll" id="hm2-scroll"><div class="hm2-track">';
-  for (const blk of blocks) {
-    html += `<div class="hm2-block"><div class="hm2-month">${monthLabel(blk)}</div><div class="hm2-cols">`;
-    for (const col of blk.cols) {
-      html += '<div class="hm2-col">';
-      for (const cell of col) {
-        const cls = cell.future ? 'future' : `lvl-${cell.level}`;
-        const tip = cell.future ? '' : `${cell.date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} · ${cell.hours.toFixed(1)} h`;
-        html += `<div class="heatmap-cell ${cls}" title="${tip}" ${cell.future ? '' : `data-key="${cell.k}"`}></div>`;
-      }
-      html += '</div>';
+  // Cumuls (minutes totales + par matière) sur une liste de dates.
+  const sumKeys = (keys) => {
+    const by = {}; let total = 0;
+    for (const k of keys) {
+      const l = byDate.get(k); if (!l) continue;
+      total += l.totalMinutes || 0;
+      for (const [sj, m] of Object.entries(l.bySubject || {})) by[sj] = (by[sj] || 0) + m;
     }
+    return { total, by };
+  };
+  const validKeys = (days) => days.filter(d => !d.hidden).map(d => d.k);
+  const fmtDay = (k) => new Date(k + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  const monthName = (blk) => cap(blk.date.toLocaleDateString('fr-FR', { month: 'long' })) + (blk.date.getFullYear() !== today.getFullYear() ? ' ' + blk.date.getFullYear() : '');
+
+  let html = '<div class="hm2"><div class="hm2-days"><div class="hm2-month-spacer"></div>';
+  ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(l => { html += `<div class="hm2-daylabel">${l}</div>`; });
+  html += '<div class="hm2-daylabel hm2-sigma" title="Total de la semaine">Σ</div></div>';
+  html += '<div class="hm2-scroll" id="hm2-scroll"><div class="hm2-track">';
+  const detailOf = {};   // id → { title, sum }
+  blocks.forEach((blk, bi) => {
+    const mKeys = blk.cols.flatMap(c => validKeys(c.days));
+    detailOf[`m${bi}`] = { title: monthName(blk), sub: 'Total du mois', sum: sumKeys(mKeys) };
+    html += `<div class="hm2-block"><button type="button" class="hm2-month" data-d="m${bi}">${monthName(blk)}</button><div class="hm2-cols">`;
+    blk.cols.forEach((col, ci) => {
+      html += '<div class="hm2-col">';
+      col.days.forEach(c => {
+        if (c.hidden) { html += '<div class="heatmap-cell hm2-off"></div>'; return; }
+        detailOf[c.k] = { title: cap(fmtDay(c.k)), sub: '', sum: sumKeys([c.k]) };
+        html += `<button type="button" class="heatmap-cell lvl-${c.level}" data-d="${c.k}" aria-label="${fmtDay(c.k)} : ${(c.mins / 60).toFixed(1)} h"></button>`;
+      });
+      const id = `w${bi}-${ci}`;
+      const first = col.days.find(d => !d.hidden), last = [...col.days].reverse().find(d => !d.hidden);
+      detailOf[id] = { title: first ? `Semaine du ${longDate(first.k)} au ${longDate(last.k)}` : 'Semaine', sub: 'Total de la semaine', sum: sumKeys(validKeys(col.days)) };
+      html += `<button type="button" class="hm2-total" data-d="${id}" aria-label="Total de la semaine">${col.weekMin > 0 ? Math.round(col.weekMin / 60) + 'h' : '–'}</button>`;
+      html += '</div>';
+    });
     html += '</div></div>';
-  }
+  });
   html += '</div></div></div>';
+  html += '<div class="hm2-detail" id="hm2-detail"><div class="hm2-hint-d">Touche un jour, un total « Σ » ou un mois pour voir le détail.</div></div>';
   html += `<div class="heatmap-legend">
-    <span class="hm2-hint">${nWeeks > 12 ? '← glisse pour voir plus loin' : ''}</span>
+    <span class="hm2-hint">${nWeeks > 6 ? '← glisse pour remonter' : ''}</span>
     <span>moins</span>
     <div class="heatmap-cell lvl-0"></div><div class="heatmap-cell lvl-1"></div><div class="heatmap-cell lvl-2"></div><div class="heatmap-cell lvl-3"></div><div class="heatmap-cell lvl-4"></div>
     <span>plus</span>
@@ -313,84 +357,29 @@ export function renderWorkHeatmap(logs) {
   const sc = root.querySelector('#hm2-scroll');
   if (sc) sc.scrollLeft = sc.scrollWidth;   // on arrive sur le mois en cours
 
-  // Click sur une cellule : popover détaillé (heures + matières).
-  root.querySelectorAll('.heatmap-cell[data-key]').forEach(cellEl => {
-    cellEl.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const k = cellEl.dataset.key;
-      const log = logs.find(l => l.date === k);
-      showHeatmapPopover(cellEl, k, log);
-    });
-  });
-}
-
-// Popover flottant qui affiche les détails d'une cellule heatmap.
-export function showHeatmapPopover(anchorEl, dateKey, log) {
-  // Ferme tout popover déjà ouvert.
-  document.querySelectorAll('.heatmap-popover').forEach(p => p.remove());
-
-  const date = new Date(dateKey + 'T00:00:00');
-  const dateLabel = date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const totalMin = log?.totalMinutes || 0;
-  const bySubject = log?.bySubject || {};
-  let subjectsHtml = '';
-  if (totalMin > 0) {
-    const sorted = Object.entries(bySubject).filter(([_, m]) => m > 0).sort((a, b) => b[1] - a[1]);
-    subjectsHtml = sorted.map(([k, m]) => {
+  const panel = root.querySelector('#hm2-detail');
+  const show = (id) => {
+    const d = detailOf[id]; if (!d) return;
+    const rows = Object.entries(d.sum.by).filter(([, m]) => m > 0).sort((a, b) => b[1] - a[1]).map(([k, m]) => {
       const meta = SUBJECTS[k];
-      return `
-        <div class="popover-subject">
-          <span>${iconHtml(meta?.icon || 'book')} ${meta?.label || k}</span>
-          <span class="mono">${formatMinutes(m)}</span>
-        </div>
-      `;
+      return `<div class="popover-subject"><span>${iconHtml(meta?.icon || 'book')} ${meta?.label || k}</span><span class="mono">${formatMinutes(m)}</span></div>`;
     }).join('');
-  }
-
-  const popover = el('div', { class: 'heatmap-popover' });
-  popover.innerHTML = `
-    <div class="popover-head">${dateLabel}</div>
-    <div class="popover-total">${totalMin > 0 ? formatMinutes(totalMin) : 'Pas de travail enregistré'}</div>
-    ${subjectsHtml ? `<div class="popover-subjects">${subjectsHtml}</div>` : ''}
-  `;
-
-  // Positionnement : sous la cellule, recentré horizontalement, avec marge bord d'écran.
-  document.body.appendChild(popover);
-  const rect = anchorEl.getBoundingClientRect();
-  const popRect = popover.getBoundingClientRect();
-  let left = rect.left + rect.width / 2 - popRect.width / 2;
-  left = Math.max(8, Math.min(left, window.innerWidth - popRect.width - 8));
-  let top = rect.bottom + 6;
-  if (top + popRect.height > window.innerHeight - 8) {
-    top = rect.top - popRect.height - 6;
-  }
-  popover.style.left = `${left}px`;
-  popover.style.top = `${top}px`;
-
-  // Fermeture au clic ailleurs / scroll / esc.
-  const close = () => {
-    popover.remove();
-    document.removeEventListener('click', onDocClick, true);
-    document.removeEventListener('scroll', close, true);
-    document.removeEventListener('keydown', onEsc);
+    panel.innerHTML = `<div class="hm2-d-head"><div><div class="popover-head">${d.title}</div>${d.sub ? `<div class="hm2-d-sub">${d.sub}</div>` : ''}</div>
+      <div class="popover-total">${d.sum.total > 0 ? formatMinutes(d.sum.total) : 'Aucun travail'}</div></div>${rows ? `<div class="popover-subjects">${rows}</div>` : ''}`;
   };
-  const onDocClick = (e) => {
-    if (!popover.contains(e.target) && e.target !== anchorEl) close();
-  };
-  const onEsc = (e) => { if (e.key === 'Escape') close(); };
-  setTimeout(() => {
-    document.addEventListener('click', onDocClick, true);
-    document.addEventListener('scroll', close, true);
-    document.addEventListener('keydown', onEsc);
-  }, 0);
+  root.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-d]'); if (!t || !root.contains(t)) return;
+    root.querySelectorAll('.hm2-sel').forEach(n => n.classList.remove('hm2-sel'));
+    t.classList.add('hm2-sel');
+    show(t.dataset.d);
+  });
 }
 
 export function renderSubjectsDonut(logs) {
   const ctx = document.getElementById('chart-work-subjects');
   if (!ctx) return;
   const today = new Date(); today.setHours(0,0,0,0);
-  const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - 30);
-  const cutoffK = todayKey(cutoff);
+  const cutoffK = statsStartKey(logs);   // depuis l'arrivée dans l'app (au plus tôt le 15 août)
   const totals = {};
   for (const l of logs) {
     if (l.date < cutoffK) continue;

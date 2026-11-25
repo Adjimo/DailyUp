@@ -8,7 +8,7 @@ import { iconHtml } from '../ui/icons.js';
 import { navigate } from '../ui/router.js';
 import { DEFAULT_HOURS, prefsNow, savePrefs } from '../features/prefs.js';
 import { seedReminderTimesFromMonday } from '../features/backup.js';
-import { DAY_LABELS, buildWeek, formatDuration } from '../features/planning.js';
+import { buildWeek, formatDuration } from '../features/planning.js';
 import { getCaracSettings, recomputeCaracs, saveCaracSettings } from '../features/caracs.js';
 import { hoursEditor } from './hours-editor.js';
 import { loadAll } from '../features/seed.js';

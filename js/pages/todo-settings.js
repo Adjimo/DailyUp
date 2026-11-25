@@ -3,7 +3,6 @@
 import { DAY_LABELS } from '../features/planning.js';
 import { loadCycle, purgeDisabledTodo, saveCycle, TODO_SUBJECTS } from '../features/todo.js';
 import { resetCycle } from '../features/todo-cycle.js';
-import { WORK_IDS } from '../features/competences.js';
 import { loadRecur, newRecurId, saveRecur, weekParity } from '../features/todo-recur.js';
 import { todayKey } from '../core/dates.js';
 import { mondayOf, parseKey } from '../core/calendar.js';

@@ -47,7 +47,7 @@ function eventCard(ev, onTap, day) {
     el('div', { class: 'pl-body' }, [
       el('div', { class: 'pl-title' }, [ev.title, dur ? el('span', { class: 'pl-chip' }, dur) : null, isLive ? el('span', { class: 'pl-chip pl-chip-live' }, 'en cours') : null]),
       meta ? el('div', { class: 'pl-meta' }, meta) : null,
-      min >= 75 ? el('div', { class: 'pl-dur' }, formatDuration(min)) : null
+      (min >= 75 && ev.type !== 'ds') ? el('div', { class: 'pl-dur' }, formatDuration(min)) : null
     ])
   ]);
 }
@@ -104,7 +104,7 @@ async function buildPlanning(root, rerender) {
   const title = week.index !== null ? `Semaine ${week.index}` : 'Semaine';
   root.appendChild(el('div', { class: 'page-title' }, [
     el('h1', {}, 'Planning'),
-    el('button', { class: 'btn ghost sm', 'aria-label': 'Couleurs du planning', onclick: () => openColors(rerender), html: iconHtml('target') })
+    el('button', { class: 'btn ghost sm', 'aria-label': 'Couleurs du planning', onclick: () => openColors(rerender), html: iconHtml('palette') })
   ]));
   root.appendChild(dayBar({
     monday: week.monday, selected: week.days[view.day].date, today,
