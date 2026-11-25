@@ -369,19 +369,6 @@ img[src*="icons/ui/"] {
 
 /* Popover heatmap : détails au clic */
 .heatmap-cell[data-key] { cursor: pointer; }
-.heatmap-popover {
-  position: fixed;
-  z-index: 2000;
-  min-width: 200px;
-  max-width: 260px;
-  background: var(--bg-1);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--r-md);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
-  padding: 12px 14px;
-  font-size: 0.85rem;
-  animation: fade-in 0.15s ease;
-}
 .popover-head {
   font-size: 0.72rem;
   color: var(--text-mute);
@@ -1137,12 +1124,12 @@ img[src*="icons/ui/"] {
   overflow: hidden;
   border: 1px solid var(--border);
 }
-.map { height: 280px; width: 100%; background: #181818; }
+.map { height: 280px; width: 100%; background: var(--bg-0); }
 
 /* MapLibre GL : palette Orion native définie dans le style JSON côté JS,
    on n'a donc pas à appliquer de filtre CSS. On ne reste qu'à styliser les
    contrôles et les markers pour qu'ils soient cohérents avec l'app. */
-.maplibregl-map { background: #181818; font-family: var(--font); }
+.maplibregl-map { background: var(--bg-0); font-family: var(--font); }
 .maplibregl-ctrl-attrib {
   background: rgba(18,18,17,0.85) !important;
   color: var(--text-mute) !important;
@@ -1177,11 +1164,11 @@ img[src*="icons/ui/"] {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 3px solid #181818;
+  border: 3px solid var(--bg-0);
   box-sizing: border-box;
   box-shadow: 0 1px 4px rgba(43,31,10,0.5);
 }
-.orion-marker-start { background: #E3B089; border-color: #181818; }
+.orion-marker-start { background: #E3B089; border-color: var(--bg-0); }
 .orion-marker-end   { background: #8A5530; border-color: #E3B089; }
 .metrics {
   display: grid;
@@ -1531,7 +1518,7 @@ button, a, label, input, select, .tab { touch-action: manipulation; }
 .cr-list { display: grid; gap: 4px; }
 .cr-row { display: flex; justify-content: space-between; align-items: center; background: var(--bg-3); color: var(--text); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 8px 12px; font: inherit; text-align: left; }
 .cr-detail-card { background: var(--bg-2); border: 1px solid var(--border); border-left-width: 3px; border-radius: var(--r-sm); padding: 10px 12px; }
-.cr-up { color: #E8A13A; } .cr-down { color: #c4584a; } .cr-eq { color: var(--text-mute); }
+.cr-up { color: #E8A13A; } .cr-down { color: var(--danger); } .cr-eq { color: var(--text-mute); }
 
 .opt-title { font-size: 1.1rem; margin: 0; display: flex; align-items: center; gap: 8px; }
 
@@ -1717,7 +1704,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 .hn-note { display: inline-flex; align-items: baseline; gap: 7px; }
 .hn-to { font-family: var(--font-mono); font-size: 1.35rem; font-weight: 800; color: var(--text); letter-spacing: -0.02em; line-height: 1; }
 .hn-delta { font-size: 0.7rem; font-weight: 700; }
-.hn-delta.up { color: #E8A13A; } .hn-delta.down { color: #c4584a; } .hn-delta.eq { color: var(--text-mute); font-weight: 500; }
+.hn-delta.up { color: #E8A13A; } .hn-delta.down { color: var(--danger); } .hn-delta.eq { color: var(--text-mute); font-weight: 500; }
 .hn-body { padding: 2px 14px 12px; }
 .hn-part { padding: 12px 0 0; }
 .hn-part + .hn-part { margin-top: 12px; border-top: 1px solid var(--border); }
@@ -1793,7 +1780,7 @@ input[type="checkbox"]:checked { background-color: var(--accent); border-color: 
 .cy-move .ico { width: 12px; height: 12px; }
 .td-check { display: grid; place-items: center; }
 .ico-close svg, .ico-tick svg, .ico-chevr svg, .ico-chevl svg, .ico-chevu svg, .ico-chevd svg { stroke-width: 2.4; }
-.wr-ok { color: var(--accent); } .wr-ko { color: #c4584a; }
+.wr-ok { color: var(--accent); } .wr-ko { color: var(--danger); }
 
 /* ── v4.47 · Style unifié des cartes dépliantes ───────────────────────────────
    Mêmes cartes et mêmes bandeaux partout : Accueil (Compétences), Aujourd'hui (À faire) et To-do (cycles, récurrents). */
@@ -2117,3 +2104,46 @@ summary.cs-fold-head:active { transform: scale(.99); background-color: rgba(200,
   .btn.is-busy::after, .btn-gpx.is-busy::after { animation-duration: 1.6s; }
   .btn.is-shake, .btn-gpx.is-shake, .btn.is-done::after { animation: none; }
 }
+
+/* Tableau des records glissants : en-tête aligné sur les lignes */
+.rolling-header, .rolling-row { padding-left: 10px; padding-right: 10px; }
+
+/* Bouton « + Sortie » et son menu (import GPX / saisie manuelle) */
+.sp-add-wrap { position: relative; }
+.sp-add-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 200px; padding: 6px; background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: var(--r-md); box-shadow: 0 10px 28px rgba(0,0,0,.35); animation: fadeUp .16s ease-out; }
+.sp-add-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; border-radius: var(--r-sm); color: var(--text); font-size: .9rem; text-align: left; }
+.sp-add-item:hover, .sp-add-item:active { background: var(--bg-3); }
+.sp-add-item .ico, .sp-add-item svg { width: 18px; height: 18px; color: var(--accent); }
+
+/* Sous-titres de section (records) : hiérarchie claire sous les bandeaux Travail / Sport */
+.sub-h { display: flex; align-items: center; gap: 8px; padding-left: 4px; font-size: .78rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
+.sub-h .ico { width: 18px; height: 18px; }
+/* Pastilles de jours à deux lettres */
+.ob-pill { font-size: .78rem; letter-spacing: 0; }
+/* Action principale : pleine, pour la distinguer des boutons secondaires */
+.btn.primary:not(.is-done) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.btn.primary:not(.is-done)::before { display: none; }
+.btn.primary:not(.is-done):hover { background: var(--accent-2); border-color: var(--accent-2); color: var(--on-accent); }
+.btn.primary svg { color: currentColor; }
+
+/* ===== Régularité v2 : grosses cases, ligne de totaux, panneau de détail fixe ===== */
+.hm2 { gap: 8px; }
+.hm2-days, .hm2-cols, .hm2-col { gap: 5px; }
+.hm2-month-spacer { height: 30px; }
+.hm2-daylabel { height: 32px; line-height: 32px; width: 14px; font-size: .68rem; }
+.hm2-sigma { height: 28px; line-height: 28px; color: var(--gold); font-weight: 700; font-size: .8rem; }
+.hm2-month { height: 30px; padding: 0 2px; font-size: .74rem; font-weight: 600; color: var(--text-dim); text-align: left; letter-spacing: .03em; white-space: nowrap; }
+.hm2-month.hm2-sel { color: var(--gold); outline: none; text-decoration: underline; text-underline-offset: 4px; }
+.hm2-col .heatmap-cell { width: 32px; height: 32px; border-radius: 8px; padding: 0; border: 0; }
+.hm2-col .heatmap-cell:hover { transform: none; box-shadow: none; }
+.hm2-off { visibility: hidden; pointer-events: none; }
+.hm2-total { width: 32px; height: 28px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--bg-3); color: var(--gold); font-family: var(--font-mono); font-size: .66rem; font-weight: 600; padding: 0; }
+.hm2-sel:not(.hm2-month) { outline: 2px solid var(--gold); outline-offset: 2px; position: relative; z-index: 2; }
+.hm2-track { gap: 16px; }
+.hm2-detail { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-3); min-height: 84px; }
+.hm2-hint-d { color: var(--text-mute); font-size: .82rem; line-height: 1.4; padding: 14px 0; text-align: center; }
+.hm2-d-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.hm2-d-head .popover-head { font-size: .85rem; color: var(--text); font-weight: 600; text-transform: none; letter-spacing: 0; }
+.hm2-d-sub { font-size: .72rem; color: var(--text-mute); }
+.hm2-d-head .popover-total { margin: 0; white-space: nowrap; }
+.hm2-detail .popover-subjects { margin-top: 8px; }
